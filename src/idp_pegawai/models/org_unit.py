@@ -2,6 +2,7 @@ from datetime import date
 
 from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+from uuid import uuid4
 
 from .base import ModelBase
 
@@ -61,6 +62,14 @@ class OrgUnit(ModelBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if self.sort_order is None:
+            self.sort_order = 0
+        if self.is_active is None:
+            self.is_active = True
+        if self.metadata_ is None:
+            self.metadata_ = {}
+        if self.uuid is None:
+            self.uuid = uuid4()
         if self.effective_from and self.effective_to and self.effective_to < self.effective_from:
             raise ValueError("effective date range tidak valid")
         if self.is_active is False and self.effective_from and self.effective_to:
@@ -75,5 +84,10 @@ class OrgUnit(ModelBase):
                 node = getattr(node, "parent", None)
         super().__setattr__(key, value)
 
+
+# Keep the schema column addressable by its database name despite the
+# declarative ``metadata`` reservation.
+_metadata_column = next(column for column in OrgUnit.__table__.columns if column.name == "metadata")
+OrgUnit.__table__.columns._index["metadata"] = ("metadata", _metadata_column)
 
 __all__ = ["OrgUnit", "UNIT_TYPES"]
