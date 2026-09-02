@@ -27,6 +27,17 @@ def test_identity_migration_schema_and_downgrade(tmp_path):
             assert columns["id"]["primary_key"]
             assert columns["uuid"]["nullable"] is False
             assert {"created_at", "updated_at"} <= columns.keys()
+        assert "deleted_at" in {c["name"] for c in inspector.get_columns("org_units")}
+        assert "deleted_at" in {c["name"] for c in inspector.get_columns("pegawai")}
+        assert "deleted_at" in {c["name"] for c in inspector.get_columns("pegawai_org_assignments")}
+        index_names = {
+            table: {index["name"] for index in inspector.get_indexes(table)}
+            for table in ("org_units", "pegawai", "pegawai_org_assignments", "pegawai_identity_links")
+        }
+        assert {"uq_org_units_code_active", "uq_org_units_path_active", "uq_org_units_keycloak_group_path_active"} <= index_names["org_units"]
+        assert {"uq_pegawai_nip_active", "uq_pegawai_email_dinas_active", "uq_pegawai_email_google_active", "uq_pegawai_keycloak_user_id_active"} <= index_names["pegawai"]
+        assert {"uq_pegawai_org_assignments_active_primary_per_pegawai", "uq_pegawai_org_assignments_active_same"} <= index_names["pegawai_org_assignments"]
+        assert "uq_pegawai_identity_links_provider_subject" in index_names["pegawai_identity_links"]
         with engine.begin() as conn:
             conn.execute(text("INSERT INTO org_units (code, slug, name, unit_type, level, path, keycloak_group_path) VALUES ('T', 't', 'T', 'kanwil', 0, '/t', '/pegawai/t')"))
             unit_id = conn.execute(text("SELECT id FROM org_units WHERE code='T'")).scalar_one()
