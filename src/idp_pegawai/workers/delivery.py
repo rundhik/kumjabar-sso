@@ -14,6 +14,7 @@ class DeliveryStatus(str, Enum):
     CLAIMING = "claiming"
     DISPATCHED = "dispatched"
     RETRY_WAIT = "retry_wait"
+    BLOCKED = "blocked"
     DEAD_LETTER = "dead_letter"
 
 
