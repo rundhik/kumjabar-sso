@@ -35,6 +35,7 @@ class OrgUnit(ModelBase):
 
     parent: Mapped["OrgUnit | None"] = relationship(remote_side="OrgUnit.id", back_populates="children")
     children: Mapped[list["OrgUnit"]] = relationship(back_populates="parent")
+    primary_pegawai = relationship("Pegawai", back_populates="primary_org_unit")
 
     @validates("unit_type")
     def validate_unit_type(self, key, value):
