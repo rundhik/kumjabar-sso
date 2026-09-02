@@ -7,7 +7,7 @@ name = "kumjabar-sso"
 version = "0.1.0"
 description = "Kumjabar SSO identity provider"
 requires-python = ">=3.11"
-dependencies = ["Flask>=3.0,<4.0", "Flask-SQLAlchemy>=3.1,<4.0"]
+dependencies = ["Flask>=3.0,<4.0", "Flask-SQLAlchemy>=3.1,<4.0", "Alembic>=1.13,<2.0", "psycopg[binary]>=3.1,<4.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8.0,<9.0"]
