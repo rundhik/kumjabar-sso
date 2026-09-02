@@ -26,7 +26,7 @@ class SoftDeleteMixin:
 class ModelBase(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     __abstract__ = True
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    metadata_: Mapped[dict] = mapped_column("metadata", JSON, key="metadata", nullable=False, default=dict)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, key="metadata_", nullable=False, default=dict)
 
     def __init__(self, **kwargs):
         if "metadata" in kwargs:

@@ -85,9 +85,9 @@ class OrgUnit(ModelBase):
         super().__setattr__(key, value)
 
 
-# Keep the schema column addressable by its database name despite the
-# declarative ``metadata`` reservation.
+
 _metadata_column = next(column for column in OrgUnit.__table__.columns if column.name == "metadata")
 OrgUnit.__table__.columns._index["metadata"] = ("metadata", _metadata_column)
+OrgUnit.__table__.columns._index["metadata_"] = ("metadata_", _metadata_column)
 
 __all__ = ["OrgUnit", "UNIT_TYPES"]

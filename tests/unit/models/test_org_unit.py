@@ -52,10 +52,20 @@ def test_parent_cycle_is_rejected():
         root.parent = child
 
 
+def test_org_unit_metadata_has_safe_attribute_and_database_name():
+    unit = OrgUnit(code="A", slug="a", name="A", unit_type="kanwil", level=0, path="/A", keycloak_group_path="/pegawai/A")
+
+    assert unit.metadata_ == {}
+    assert OrgUnit.__table__.c.metadata_.name == "metadata"
+    assert OrgUnit.__table__.c.metadata_.key == "metadata_"
+    assert OrgUnit.__table__.c.metadata_.type.python_type is dict
+
+
 def test_metadata_is_json_mapping():
     unit = OrgUnit(code="A", slug="a", name="A", unit_type="kanwil", level=0, path="/A", keycloak_group_path="/pegawai/A")
-    assert unit.metadata == {}
-    assert isinstance(inspect(OrgUnit).columns.metadata.type.python_type, type)
+    assert unit.metadata_ == {}
+    assert isinstance(OrgUnit.__table__.c.metadata_.type.python_type, type)
+    assert OrgUnit.__table__.c.metadata_.name == "metadata"
 
 
 def test_model_metadata_is_shared_for_alembic():
