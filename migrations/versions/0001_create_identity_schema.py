@@ -41,5 +41,42 @@ def upgrade():
 
 
 def downgrade():
-    for name, table in [("uq_pegawai_identity_links_provider_subject","pegawai_identity_links"),("uq_pegawai_nip_active","pegawai"),("uq_org_units_path_active","org_units"),("uq_org_units_code_active","org_units")]: op.drop_index(name, table_name=table)
-    for table in ("pegawai_identity_links","pegawai_org_assignments","pegawai","org_units"): op.drop_table(table)
+    # The upgrade uses these dynamic names; keep their templates explicit for review.
+    # "ix_{table}_{col}" and the loop's table name "pegawai" expand to the
+    # concrete indexes listed below.
+    # Drop indexes before their tables, in reverse dependency-safe order.
+    for name, table in (
+        ("uq_pegawai_identity_links_provider_subject", "pegawai_identity_links"),
+        ("ix_pegawai_identity_links_is_active", "pegawai_identity_links"),
+        ("ix_pegawai_identity_links_email_normalized", "pegawai_identity_links"),
+        ("ix_pegawai_identity_links_provider", "pegawai_identity_links"),
+        ("ix_pegawai_identity_links_pegawai_id", "pegawai_identity_links"),
+        ("uq_pegawai_org_assignments_active_same", "pegawai_org_assignments"),
+        ("uq_pegawai_org_assignments_active_primary_per_pegawai", "pegawai_org_assignments"),
+        ("ix_pegawai_org_assignments_is_active", "pegawai_org_assignments"),
+        ("ix_pegawai_org_assignments_assignment_type", "pegawai_org_assignments"),
+        ("ix_pegawai_org_assignments_org_unit_id", "pegawai_org_assignments"),
+        ("ix_pegawai_org_assignments_pegawai_id", "pegawai_org_assignments"),
+        ("uq_pegawai_keycloak_user_id_active", "pegawai"),
+        ("uq_pegawai_email_google_active", "pegawai"),
+        ("uq_pegawai_email_dinas_active", "pegawai"),
+        ("uq_pegawai_nip_active", "pegawai"),
+        ("ix_pegawai_nip", "pegawai"),
+        ("ix_pegawai_email_google_normalized", "pegawai"),
+        ("ix_pegawai_email_dinas_normalized", "pegawai"),
+        ("ix_pegawai_keycloak_user_id", "pegawai"),
+        ("ix_pegawai_is_active", "pegawai"),
+        ("ix_pegawai_status_pegawai", "pegawai"),
+        ("ix_pegawai_primary_org_unit_id", "pegawai"),
+        ("uq_org_units_keycloak_group_path_active", "org_units"),
+        ("uq_org_units_path_active", "org_units"),
+        ("uq_org_units_code_active", "org_units"),
+        ("ix_org_units_sort_order", "org_units"),
+        ("ix_org_units_level", "org_units"),
+        ("ix_org_units_is_active", "org_units"),
+        ("ix_org_units_unit_type", "org_units"),
+        ("ix_org_units_parent_id", "org_units"),
+    ):
+        op.drop_index(name, table_name=table)
+    for table in ("pegawai_identity_links", "pegawai_org_assignments", "pegawai", "org_units"):
+        op.drop_table(table)
