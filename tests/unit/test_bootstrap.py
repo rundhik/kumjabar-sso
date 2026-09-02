@@ -1,4 +1,12 @@
 from idp_pegawai import create_app
+from idp_pegawai.extensions import db
+
+
+def test_application_factory_initializes_database_extension():
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"})
+
+    assert app.extensions["sqlalchemy"] is db
+    assert app.config["SQLALCHEMY_DATABASE_URI"] == "sqlite:///:memory:"
 
 
 def test_package_exposes_application_factory():
