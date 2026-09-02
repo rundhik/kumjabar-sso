@@ -3,5 +3,6 @@ from .org_unit import OrgUnit
 from .pegawai import Pegawai
 from .identity_link import PegawaiIdentityLink
 from .import_batch import ImportBatch
+from .outbox_event import OutboxEvent
 
-__all__ = ["Base", "ModelBase", "SoftDeleteMixin", "TimestampMixin", "UUIDMixin", "OrgUnit", "Pegawai", "PegawaiIdentityLink", "ImportBatch"]
+__all__ = ["Base", "ModelBase", "SoftDeleteMixin", "TimestampMixin", "UUIDMixin", "OrgUnit", "Pegawai", "PegawaiIdentityLink", "ImportBatch", "OutboxEvent"]
