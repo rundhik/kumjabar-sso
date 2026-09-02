@@ -1,0 +1,38 @@
+services:
+  kumjabar_idp:
+    image: python3-base:latest
+    container_name: kumjabar_idp
+    working_dir: /usr/src/app
+    command: >
+      sh -c "
+      flask --app 'idp_pegawai:create_app()' db upgrade &&
+      python scripts/seed_dev_org_unit.py &&
+      flask --app 'idp_pegawai:create_app()' run
+      --host=0.0.0.0
+      --port=9999
+      "
+    volumes:
+      - .:/usr/src/app
+      - import_storage:/var/lib/kumjabar/imports
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /usr/src/app
+      FLASK_CONFIG: development
+      IMPORT_STORAGE_DIR: /var/lib/kumjabar/imports
+      IMPORT_ORG_CODES: TUM_TI
+      # Never expose the destructive migration-test URL to the runtime service.
+      # Configure TEST_DATABASE_URL only in a dedicated isolated test profile.
+      TEST_DATABASE_URL: ""
+    networks:
+      - project_network
+    ports:
+      - "9999:9999"
+    restart: always
+
+networks:
+  project_network:
+    external: true
+
+volumes:
+  import_storage:
