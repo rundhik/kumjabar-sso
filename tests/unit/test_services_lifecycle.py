@@ -1,19 +1,29 @@
-from datetime import date
-
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from types import SimpleNamespace
 
-from idp_pegawai.models import Base, OrgUnit, Pegawai
+from idp_pegawai.models import OrgUnit
 from idp_pegawai.services import OrgUnitSeedService, OrgUnitService, PegawaiService
 
 
-@pytest.fixture
-def session():
-    engine = create_engine("sqlite://")
-    OrgUnit.__table__.create(engine)
-    with Session(engine) as s:
-        yield s
+class FakeSession:
+    def __init__(self):
+        self.items = []
+
+    def add(self, item):
+        self.items.append(item)
+
+    def flush(self):
+        return None
+
+    def query(self, model):
+        session = self
+        class Query:
+            def filter_by(self, **filters):
+                self.filters = filters
+                return self
+            def one_or_none(self):
+                return next((x for x in session.items if all(getattr(x, k, None) == v for k, v in self.filters.items())), None)
+        return Query()
 
 
 def unit(code="KANWIL_JABAR", slug="kanwil-jabar", name="Kanwil Jawa Barat"):
@@ -21,33 +31,48 @@ def unit(code="KANWIL_JABAR", slug="kanwil-jabar", name="Kanwil Jawa Barat"):
                 path=f"/{slug}", keycloak_group_path=f"/pegawai/{slug}")
 
 
-def test_org_service_rejects_inconsistent_paths(session):
-    service = OrgUnitService(session)
+def test_org_service_rejects_inconsistent_paths():
     with pytest.raises(ValueError, match="path"):
-        service.create(**{**unit(), "path": "/wrong"})
+        OrgUnitService(FakeSession()).create(**{**unit(), "path": "/wrong"})
 
 
-def test_pegawai_service_normalizes_email_and_deactivates_without_delete(session):
-    org = OrgUnit(**unit()); session.add(org); session.flush()
-    service = PegawaiService(session)
-    pegawai = service.create(nip="123456789012345678", nama_lengkap="A", status_pegawai="aktif",
-                              primary_org_unit=org, email_dinas="  A@EXAMPLE.COM ")
-    service.deactivate(pegawai, "pensiun")
+def test_pegawai_service_normalizes_email_and_deactivates_without_delete():
+    session = FakeSession()
+    pegawai = PegawaiService(session).create(
+        nip="123456789012345678", nama_lengkap="A", status_pegawai="nonaktif",
+        email_dinas="  A@EXAMPLE.COM ")
+    PegawaiService(session).deactivate(pegawai, "pensiun")
     assert pegawai.email_dinas_normalized == "a@example.com"
     assert not pegawai.is_active and pegawai.status_pegawai == "pensiun"
     assert pegawai.deleted_at is None
 
 
-def test_seed_is_idempotent_and_deterministic(session):
+def test_seed_is_idempotent_and_deterministic():
+    session = FakeSession()
     summary = OrgUnitSeedService(session).seed([unit()])
     again = OrgUnitSeedService(session).seed([unit()])
     assert summary["inserted"] == 1
     assert again["unchanged"] == 1 and again["inserted"] == 0
-    assert session.query(OrgUnit).count() == 1
+    assert len(session.items) == 1
 
 
-def test_active_pegawai_requires_active_primary_org(session):
-    inactive = OrgUnit(**{**unit(), "is_active": False}); session.add(inactive); session.flush()
+def test_active_pegawai_requires_active_primary_org():
+    inactive = SimpleNamespace(is_active=False)
     with pytest.raises(ValueError):
-        PegawaiService(session).create(nip="123456789012345678", nama_lengkap="A", status_pegawai="aktif",
-                                       primary_org_unit=inactive)
+        PegawaiService(FakeSession()).create(
+            nip="123456789012345678", nama_lengkap="A", status_pegawai="aktif",
+            primary_org_unit=inactive)
+
+
+def test_org_service_creates_consistent_unit():
+    obj = OrgUnitService(FakeSession()).create(**unit())
+    assert obj.path == "/kanwil-jabar"
+    assert obj.keycloak_group_path == "/pegawai/kanwil-jabar"
+    assert obj.is_active is True
+    assert obj.deleted_at is None
+
+
+def test_pegawai_service_rejects_invalid_status():
+    with pytest.raises(ValueError, match="status"):
+        PegawaiService(FakeSession()).create(
+            nip="123456789012345678", nama_lengkap="A", status_pegawai="invalid")
