@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, JSON, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, JSON, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from .base import Base, UUIDMixin, TimestampMixin
@@ -25,6 +25,11 @@ class PegawaiIdentityLink(Base, UUIDMixin, TimestampMixin):
     linked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_: Mapped[dict] = mapped_column("metadata", JSON, key="metadata_", nullable=False, default=dict)
+    management_mode: Mapped[str] = mapped_column(String(30), nullable=False, default="idp_managed")
+    link_status: Mapped[str] = mapped_column(String(30), nullable=False, default="reserved")
+    link_version: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1)
+    correlation_uuid: Mapped[object | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    unlinked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     pegawai = relationship("Pegawai", back_populates="identity_links")
 
