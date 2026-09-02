@@ -75,3 +75,23 @@ def test_xlsx_zip_compression_ratio_is_bounded(tmp_path):
         z.writestr("xl/workbook.xml", raw)
     with pytest.raises(IntakeError, match="ZIP"):
         intake_file(io.BytesIO(out.getvalue()), "x.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", tmp_path, max_uncompressed_size=100)
+
+
+def test_rejects_xlsx_with_too_many_zip_entries(tmp_path):
+    data, _, mime = xlsx_bytes()
+    out = io.BytesIO(data)
+    with zipfile.ZipFile(out, "a") as z:
+        for index in range(255):
+            z.writestr(f"xl/worksheets/sheet{index}.xml", b"x")
+    with pytest.raises(IntakeError, match="entry"):
+        intake_file(io.BytesIO(out.getvalue()), "x.xlsx", mime, tmp_path)
+
+
+@pytest.mark.parametrize("member", ["xl/vbaProject.bin", "xl/embeddings/oleObject1.bin"])
+def test_rejects_xlsx_macros_and_embedded_objects(tmp_path, member):
+    data, _, mime = xlsx_bytes()
+    out = io.BytesIO(data)
+    with zipfile.ZipFile(out, "a") as z:
+        z.writestr(member, b"payload")
+    with pytest.raises(IntakeError, match="macro|embedded"):
+        intake_file(io.BytesIO(out.getvalue()), "x.xlsx", mime, tmp_path)

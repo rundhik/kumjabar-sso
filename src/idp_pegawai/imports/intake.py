@@ -39,18 +39,31 @@ def _check_xlsx(data: bytes, max_uncompressed_size: int) -> None:
         raise IntakeError("signature XLSX tidak valid")
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            if archive.testzip() is not None:
-                raise IntakeError("ZIP XLSX rusak")
-            names = [item.filename for item in archive.infolist()]
+            infos = archive.infolist()
+            if len(infos) > 256:
+                raise IntakeError("ZIP XLSX terlalu banyak entry")
+            names = [item.filename for item in infos]
             if "xl/workbook.xml" not in names or "[Content_Types].xml" not in names:
                 raise IntakeError("struktur ZIP XLSX tidak valid")
             total = 0
-            for item in archive.infolist():
+            for item in infos:
                 if item.filename.startswith(("/", "\\")) or ".." in Path(item.filename).parts:
                     raise IntakeError("ZIP path boundary tidak aman")
+                # Reject encrypted members and extreme expansion before testzip()
+                # can decompress attacker-controlled content.
+                if item.flag_bits & 0x1:
+                    raise IntakeError("ZIP XLSX terenkripsi")
+                if item.compress_size == 0 and item.file_size > 0:
+                    raise IntakeError("rasio kompresi ZIP XLSX tidak aman")
+                if item.compress_size and item.file_size / item.compress_size > 100:
+                    raise IntakeError("rasio kompresi ZIP XLSX tidak aman")
+                if item.filename.startswith(("xl/vbaProject", "xl/embeddings/")):
+                    raise IntakeError("macro atau embedded object XLSX tidak diizinkan")
                 total += item.file_size
                 if total > max_uncompressed_size:
                     raise IntakeError("ZIP XLSX melebihi batas size")
+            if archive.testzip() is not None:
+                raise IntakeError("ZIP XLSX rusak")
     except zipfile.BadZipFile as exc:
         raise IntakeError("ZIP XLSX tidak valid") from exc
 
