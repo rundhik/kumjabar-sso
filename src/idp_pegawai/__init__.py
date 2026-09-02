@@ -15,4 +15,7 @@ def create_app(config_object=None):
         app.config.from_object(Config)
         app.config.from_object(config_object)
     db.init_app(app)
+    from .api import admin_bp
+
+    app.register_blueprint(admin_bp)
     return app
