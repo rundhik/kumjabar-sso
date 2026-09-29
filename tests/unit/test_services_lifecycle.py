@@ -47,6 +47,15 @@ def test_pegawai_service_normalizes_email_and_deactivates_without_delete():
     assert pegawai.deleted_at is None
 
 
+def test_org_service_update_can_reactivate_unit():
+    session = FakeSession()
+    unit_obj = OrgUnitService(session).create(**{**unit(), "is_active": False})
+
+    OrgUnitService(session).update(unit_obj, is_active=True)
+
+    assert unit_obj.is_active is True
+
+
 def test_seed_is_idempotent_and_deterministic():
     session = FakeSession()
     summary = OrgUnitSeedService(session).seed([unit()])
@@ -76,3 +85,23 @@ def test_pegawai_service_rejects_invalid_status():
     with pytest.raises(ValueError, match="status"):
         PegawaiService(FakeSession()).create(
             nip="123456789012345678", nama_lengkap="A", status_pegawai="invalid")
+
+
+def test_pegawai_update_active_to_nonaktif_keeps_database_invariant():
+    org = OrgUnit(is_active=True)
+    pegawai = PegawaiService(FakeSession()).create(
+        nip="123456789012345678", nama_lengkap="A", status_pegawai="aktif",
+        primary_org_unit=org)
+
+    PegawaiService(FakeSession()).update(pegawai, status_pegawai="nonaktif")
+
+    assert pegawai.status_pegawai == "nonaktif"
+    assert pegawai.is_active is False
+
+
+def test_pegawai_update_rejects_identity_field_changes():
+    pegawai = PegawaiService(FakeSession()).create(
+        nip="123456789012345678", nama_lengkap="A", status_pegawai="nonaktif")
+
+    with pytest.raises(ValueError, match="field pegawai"):
+        PegawaiService(FakeSession()).update(pegawai, nip="999999999999999999")

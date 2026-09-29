@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlsplit
 
 import pytest
 from alembic import command
@@ -12,6 +13,12 @@ def test_identity_migration_schema_and_downgrade(tmp_path):
     database_url = os.getenv("TEST_DATABASE_URL")
     if not database_url:
         pytest.skip("TEST_DATABASE_URL belum dikonfigurasi")
+    runtime_url = os.getenv("DATABASE_URL")
+    if not runtime_url:
+        from idp_pegawai.config import Config as AppConfig
+        runtime_url = AppConfig.build_db_uri(AppConfig.DB_DRIVER, AppConfig.DB_USER, AppConfig.DB_PASSWORD, AppConfig.DB_HOST, AppConfig.DB_PORT, AppConfig.DB_NAME)
+    if database_url == runtime_url:
+        pytest.fail("TEST_DATABASE_URL wajib menunjuk database terisolasi, bukan DATABASE_URL runtime")
 
     config = Config(str(tmp_path / "alembic.ini"))
     config.set_main_option("script_location", "migrations")
@@ -24,7 +31,7 @@ def test_identity_migration_schema_and_downgrade(tmp_path):
         assert {"org_units", "pegawai", "pegawai_org_assignments", "pegawai_identity_links"} <= set(inspector.get_table_names())
         for table in ("org_units", "pegawai", "pegawai_org_assignments", "pegawai_identity_links"):
             columns = {c["name"]: c for c in inspector.get_columns(table)}
-            assert columns["id"]["primary_key"]
+            assert "id" in inspector.get_pk_constraint(table)["constrained_columns"]
             assert columns["uuid"]["nullable"] is False
             assert {"created_at", "updated_at"} <= columns.keys()
         assert "deleted_at" in {c["name"] for c in inspector.get_columns("org_units")}

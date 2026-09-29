@@ -1,0 +1,42 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python bytecode and caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build/package artifacts
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local runtime artifacts
+.coverage
+htmlcov/
+logs/
+*.log
+
+# Test/local databases
+*.db
+*.sqlite
+
+# Local Docker overrides
+docker-compose.override.yml

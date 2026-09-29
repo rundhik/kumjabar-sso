@@ -1,0 +1,16 @@
+# Non-production only. Static artifact; never use for production activation.
+services:
+  kumjabar_keycloak_staging:
+    image: quay.io/keycloak/keycloak:26.7.3
+    command: ["start", "--http-enabled=false", "--hostname-strict=true"]
+    environment:
+      KC_DB: postgres
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME: ${STAGING_KEYCLOAK_HOST:?set staging hostname}
+    networks: [project_network]
+    restart: "no"
+networks:
+  project_network:
+    external: true

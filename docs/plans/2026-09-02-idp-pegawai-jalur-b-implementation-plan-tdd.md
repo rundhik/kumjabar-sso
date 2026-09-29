@@ -51,6 +51,18 @@
 
 ## 2.1 Catatan verifikasi terakhir
 
+### UI admin / Milestone A (local evidence)
+
+- [x] UI server-rendered terdaftar di application factory, deny-by-default, dan static asset tersedia.
+- [x] Dashboard, pegawai, organisasi: authorized synthetic grants, empty state, dan generic repository error state.
+- [x] Halaman import memberi contract guidance eksplisit; tidak ada form palsu karena route upload/status/approve/apply runtime dan OpenAPI belum tersedia.
+- [x] Regression targeted: UI contract `5 passed`; `docker compose config --quiet` GREEN.
+- [x] UI contract coverage: deny-by-default, synthetic grants, rendering, empty/error states, static CSS, and template leakage guards.
+- [x] Manual action: contract HTTP import + Flasgger/OpenAPI, wiring upload, batch state, dry-run, error report, approval, dan atomic apply tersedia; Apply menggunakan service domain dan transaksi persistence.
+- [ ] Manual/external evidence: PostgreSQL runtime, staging TLS/OIDC/gateway, dan browser rehearsal.
+
+## 2.1 Catatan verifikasi terakhir
+
 ### Roadmap lanjutan (evidence lokal, synthetic fixture)
 
 Test readiness menggunakan synthetic fixture saja dan bukan runtime/external evidence. `pytest tests/unit tests/contract -q` menghasilkan 192 passed, 1 warning. `docker compose config --quiet` GREEN. Full suite lokal menghasilkan 198 passed, 2 gagal karena `global_postgresql` tidak dapat di-resolve dari environment ini; ini blocker environment, bukan bukti PostgreSQL gagal. Docker `python3-base:latest` wajib dijalankan ulang pada environment yang menyediakan dependency dan network PostgreSQL.

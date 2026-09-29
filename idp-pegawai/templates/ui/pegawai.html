@@ -1,0 +1,150 @@
+{% extends 'ui/base.html' %}{% block content %}
+<header class="page-head">
+    <div>
+        <p class="eyebrow">Master data</p>
+        <h1>Pegawai</h1>
+        <p class="muted">Semua pegawai ditampilkan, termasuk yang sudah tidak aktif atau memiliki status khusus.</p>
+    </div>
+    <div class="summary"><strong>{{ records|length }}</strong><span>total pegawai</span></div>
+</header>
+<section class="status-cards" aria-label="Ringkasan status pegawai">
+    <div class="status-card"><strong>{{ status_counts.aktif }}</strong><span>Aktif</span></div>
+    <div class="status-card"><strong>{{ status_counts.nonaktif }}</strong><span>Nonaktif</span></div>
+    <div class="status-card"><strong>{{ status_counts.mutasi_keluar }}</strong><span>Mutasi keluar</span></div>
+    <div class="status-card"><strong>{{ status_counts.pensiun }}</strong><span>Pensiun</span></div>
+    <div class="status-card"><strong>{{ status_counts.meninggal }}</strong><span>Meninggal</span></div>
+</section>
+<section class="list-card" aria-labelledby="pegawai-list-title">
+    <div class="list-head">
+        <div>
+            <h2 id="pegawai-list-title">Daftar seluruh pegawai</h2>
+            <p class="muted">Data aktif dan tidak aktif tetap terlihat. Cari, urutkan, paginasi, atau ekspor data.</p>
+        </div>
+        <button class="button secondary" type="button" id="btn-sync-keycloak">🔄 Sync ke Keycloak</button>
+        <button class="button primary" type="button" data-open-modal="pegawai-modal">+ Tambah pegawai</button>
+    </div>
+    {% if state == 'error' %}<div class="empty-state error">Data sementara tidak tersedia.</div>{% elif records %}
+    <div class="overflow-x-auto">
+        <table class="record-table" data-export-name="pegawai.csv">
+            <thead>
+                <tr>
+                    <th>Pegawai</th>
+                    <th>Status</th>
+                    <th>Unit utama</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>{% for p in records %}<tr>
+                    <td><strong>{{ p.nama_lengkap }}</strong><small>{{ p.nip }}</small></td>
+                    <td><span class="status-badge status-{{ p.status_pegawai }}">{{ p.status_pegawai|replace('_', '
+                            ')|capitalize }}</span></td>
+                    <td>{% if p.primary_org_unit %}<strong>{{ p.primary_org_unit.name }}</strong><small>{{
+                            p.primary_org_unit.code }}</small>{% else %}-{% endif %}</td>
+                    <td class="actions"><button class="button secondary icon p-link" type="button"
+                            aria-label="Hubungkan identity {{ p.nama_lengkap }}" data-uuid="{{ p.uuid }}"
+                            data-name="{{ p.nama_lengkap }}">Link IDP</button><button
+                            class="button secondary icon p-edit" type="button" aria-label="Ubah {{ p.nama_lengkap }}"
+                            data-uuid="{{ p.uuid }}" data-nip="{{ p.nip }}" data-name="{{ p.nama_lengkap }}"
+                            data-status="{{ p.status_pegawai }}"
+                            data-org="{{ p.primary_org_unit.uuid if p.primary_org_unit else '' }}"
+                            data-email="{{ p.email_dinas or '' }}">Ubah</button>{% if p.status_pegawai == 'aktif'
+                        %}<button class="button danger icon p-deactivate" type="button"
+                            data-uuid="{{ p.uuid }}">Nonaktifkan</button>{% endif %}</td>
+                </tr>{% endfor %}</tbody>
+        </table>
+    </div>{% else %}<div class="empty-state">Belum ada data pegawai.</div>{% endif %}
+</section>
+<dialog id="pegawai-modal" class="modal">
+    <div class="modal-head">
+        <h2 id="p-modal-title">Tambah pegawai</h2><button class="button icon" type="button" data-close-modal
+            aria-label="Tutup">×</button>
+    </div>
+    <form id="pegawai-form"><input type="hidden" id="p-uuid"><label class="field">NIP<input id="p-nip" maxlength="18"
+                required></label><label class="field">Nama lengkap<input id="p-name" maxlength="255"
+                required></label><label class="field">Status<select id="p-status">
+                <option>aktif</option>
+                <option>mutasi_keluar</option>
+                <option>pensiun</option>
+                <option>nonaktif</option>
+                <option>meninggal</option>
+            </select></label><label class="field">Unit utama<select id="p-org" required>
+                <option value="">Pilih unit utama</option>{% for u in units or [] %}<option value="{{ u.uuid }}">{{
+                    u.name }} ({{ u.code }})</option>{% endfor %}
+            </select><small class="field-help">Pilih nama unit tempat pegawai bekerja.</small></label><label
+            class="field">Email dinas<input id="p-email" type="email"></label>
+        <div class="modal-actions"><button class="button secondary" type="button" data-close-modal>Batal</button><button
+                class="button primary" type="submit">Simpan pegawai</button></div>
+        <p id="p-feedback" class="feedback" role="status" aria-live="polite"></p>
+    </form>
+</dialog>
+<dialog id="identity-link-modal" class="modal">
+    <div class="modal-head">
+        <h2>Hubungkan identity provider</h2><button class="button icon" type="button" data-close-identity
+            aria-label="Tutup">×</button>
+    </div>
+    <form id="identity-link-form">
+        <p class="muted">Pegawai: <strong id="link-employee"></strong></p><label class="field">Provider<select
+                id="link-provider">
+                <option value="keycloak">Keycloak</option>
+                <option value="google">Google</option>
+                <option value="microsoft">Microsoft</option>
+                <option value="local">Local</option>
+            </select></label><label class="field">Issuer<input id="link-issuer" required
+                placeholder="https://.../realms/kumjabar"><small class="field-help">Harus sama persis dengan issuer
+                token.</small></label><label class="field">Provider subject (sub)<input id="link-subject" required
+                maxlength="255"><small class="field-help">Tempel ID/User ID user dari Keycloak, bukan
+                email.</small></label><label class="field">Email provider (opsional)<input id="link-email"
+                type="email"></label><label class="field"><input id="link-verified" type="checkbox"> Email sudah
+            terverifikasi</label>
+        <div class="modal-actions"><button class="button secondary" type="button"
+                data-close-identity>Batal</button><button class="button primary" type="submit">Simpan identity
+                link</button></div>
+        <p id="link-feedback" class="feedback" role="status" aria-live="polite"></p>
+    </form>
+</dialog>
+<script>
+    const ilm = document.querySelector('#identity-link-modal'), ilf = document.querySelector('#identity-link-form'), ilmsg = document.querySelector('#link-feedback');
+    let linkUuid = '', linkRecordUuid = ''; document.querySelectorAll('.p-link').forEach(b => b.onclick = async () => { linkUuid = b.dataset.uuid; document.querySelector('#link-employee').textContent = b.dataset.name; ilf.reset(); ilmsg.textContent = 'Memuat identity link...'; ilmsg.className = 'feedback';
+    const response = await fetch('/admin/pegawai/' + encodeURIComponent(linkUuid) + '/identity-links');
+    const body = await response.json().catch(() => ({}));
+    const existing = (body.data || [])[0]; if (existing) { linkRecordUuid = existing.uuid; document.querySelector('#link-provider').value = existing.provider; document.querySelector('#link-issuer').value = existing.issuer; document.querySelector('#link-subject').value = existing.provider_subject; document.querySelector('#link-email').value = existing.email || ''; document.querySelector('#link-verified').checked = !!existing.email_verified; ilmsg.textContent = 'Identity link ditemukan. Kamu bisa memperbarui nilainya.' } else { linkRecordUuid = ''; ilmsg.textContent = 'Belum ada identity link. Isi data lalu simpan.' } ilm.showModal() });
+    const resetIdentityForm = () => { ilf.reset(); ilmsg.textContent = ''; ilmsg.className = 'feedback'; linkUuid = ''; linkRecordUuid = ''; document.querySelector('#link-employee').textContent = '' }; document.querySelectorAll('[data-close-identity]').forEach(b => b.onclick = () => { resetIdentityForm(); ilm.close() }); ilm.addEventListener('close', resetIdentityForm); ilf.onsubmit = async e => { e.preventDefault();
+    const v = id => document.querySelector('#' + id).value.trim();
+    const payload = { provider: v('link-provider'), issuer: v('link-issuer'), provider_subject: v('link-subject'), email: v('link-email') || null, email_verified: document.querySelector('#link-verified').checked };
+    const r = await preq(linkRecordUuid ? '/admin/identity-links/' + encodeURIComponent(linkRecordUuid) : '/admin/pegawai/' + encodeURIComponent(linkUuid) + '/identity-links', linkRecordUuid ? 'PATCH' : 'POST', payload); ilmsg.textContent = r.ok ? 'Identity link berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); ilmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { ilm.close(); location.reload() } };
+    const pm = document.querySelector('#pegawai-modal'), pf = document.querySelector('#pegawai-form'), pmsg = document.querySelector('#p-feedback');
+    const preq = async (u, m, b) => { const r = await fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); let j = {}; try { j = await r.json() } catch (_) { } return { ok: r.ok, body: j } }; document.querySelectorAll('[data-open-modal]').forEach(b => b.onclick = () => { pf.reset(); document.querySelector('#p-uuid').value = ''; pm.showModal() }); document.querySelectorAll('[data-close-modal]').forEach(b => b.onclick = () => pm.close()); document.querySelectorAll('.p-edit').forEach(b => b.onclick = () => { [['uuid', 'p-uuid'], ['nip', 'p-nip'], ['name', 'p-name'], ['status', 'p-status'], ['org', 'p-org'], ['email', 'p-email']].forEach(([d, i]) => document.querySelector('#' + i).value = b.dataset[d]); document.querySelector('#p-modal-title').textContent = 'Ubah pegawai'; pm.showModal() }); pf.onsubmit = async e => { e.preventDefault(); const value = id => document.querySelector('#' + id).value.trim();
+    const id = value('p-uuid');
+    const b = { nama_lengkap: value('p-name'), status_pegawai: value('p-status'), email_dinas: value('p-email') || null }; if (!id) b.nip = value('p-nip'); if (value('p-org')) b.primary_org_unit_uuid = value('p-org');
+    const r = await preq(id ? '/admin/pegawai/' + encodeURIComponent(id) : '/admin/pegawai/create', id ? 'PATCH' : 'POST', b); pmsg.textContent = r.ok ? 'Berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); pmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { pm.close(); location.reload() } }; document.querySelectorAll('.p-deactivate').forEach(b => b.onclick = async () => { if (!confirm('Nonaktifkan pegawai ini?')) return; const r = await preq('/admin/pegawai/' + encodeURIComponent(b.dataset.uuid) + '/deactivate', 'POST', { status: 'nonaktif', reason: 'Dinonaktifkan melalui UI' }); if (r.ok) location.reload(); else alert(r.body.error || 'Permintaan gagal.') });
+
+    // Tambahkan di bagian bawah script pegawai.html
+    document.querySelector('#btn-sync-keycloak').onclick = async () => {
+    if (!confirm('Proses ini akan menginjeksi pegawai aktif yang belum memiliki akun ke Keycloak. Lanjutkan?')) return;
+
+    const btn = document.querySelector('#btn-sync-keycloak');
+    btn.disabled = true;
+    btn.textContent = '⏳ Memproses Sync...';
+
+    try {
+        const response = await fetch('/admin/pegawai/sync-keycloak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+        alert(`Sync Berhasil!\n- Dibuat: ${result.data.created} akun\n- Ditolak/Error: ${result.data.failed}\n- Skips (Sudah ada): ${result.data.skipped}`);
+        location.reload();
+        } else {
+        alert('Gagal Sync: ' + (result.error || 'Terjadi kesalahan sistem'));
+        }
+    } catch (err) {
+        alert('Gagal menghubungi server.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '🔄 Sync ke Keycloak';
+    }
+    };
+</script>
+{% endblock %}
