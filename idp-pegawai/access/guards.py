@@ -29,9 +29,9 @@ def require_capability(
             continue
         if capability not in CAPABILITIES_BY_ROLE.get(grant.role, frozenset()):
             continue
-        if grant.scope_type is ScopeType.GLOBAL:
+        if grant.scope_type == ScopeType.GLOBAL:
             return True
-        if grant.scope_type is ScopeType.ORG_UNIT_SUBTREE and grant.scope_root_id is not None:
+        if grant.scope_type == ScopeType.ORG_UNIT_SUBTREE and grant.scope_root_id is not None:
             predicate = is_same_or_descendant or (lambda candidate, root: candidate == root)
             if all(predicate(unit_id, grant.scope_root_id) for unit_id in requested):
                 return True

@@ -1,0 +1,21 @@
+version: 1
+# Static policy artifact only; activation requires a separate infrastructure change.
+public_ingress:
+  allow:
+    - /oidc/authorize
+    - /oidc/token
+    - /idp-pegawai/admin/*
+    - /idp-pegawai/admin/api/*
+  deny_prefixes:
+    - /idp-pegawai/internal/
+    - /idp-pegawai/feed/
+    - /idp-pegawai/worker/
+  deny_status: 404
+private_ingress:
+  allow:
+    - /idp-pegawai/internal/feed/*
+    - /idp-pegawai/internal/worker/*
+  network: private
+  authentication: service_jwt
+  audience: idp-pegawai-internal
+  required_scope: feed:read

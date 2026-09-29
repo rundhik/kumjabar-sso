@@ -1,0 +1,28 @@
+# Kontrak synthetic lokal; bukan konfigurasi gateway production.
+# Evidence ini hanya memverifikasi bentuk kebijakan route melalui pytest.
+public_ingress:
+  allow:
+    - /idp-pegawai/health
+    - /idp-pegawai/oidc/*
+  deny:
+    - /idp-pegawai/internal/*
+    - /idp-pegawai/feed/*
+private_ingress:
+  paths:
+    - /idp-pegawai/internal/feed/*
+  authentication: service_jwt
+  audience: idp-pegawai-internal
+  required_scope: feed:read
+  upstream_tls: required
+security:
+  tls:
+    verify_upstream: true
+    verify_peer: true
+  forwarding:
+    preserve_authorization: true
+    strip_external_authorization: true
+responses:
+  anonymous: 401
+  missing_scope: 403
+  invalid_audience: 403
+  valid_service_token: 200

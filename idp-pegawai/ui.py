@@ -20,7 +20,12 @@ def _allowed(capability):
     try:
         require_capability(grants, capability)
         return True
-    except AuthorizationDenied:
+    except AuthorizationDenied as exc:
+        # Log deny reason for troubleshooting (no PII)
+        try:
+            current_app.logger.warning("UI deny %s: grants=%s err=%s", capability, grants, exc)
+        except Exception:
+            pass
         return False
 
 
@@ -79,12 +84,5 @@ def import_page():
     return render_template("ui/import.html", supported=supported)
 
 
-@ui_bp.get("/consumers")
-def consumers():
-    if not _allowed(Capability.CONSUMER_REGISTRATION_VIEW):
-        return _denied()
-    return render_template("ui/consumers.html")
-
 
 __all__ = ["ui_bp"]
-

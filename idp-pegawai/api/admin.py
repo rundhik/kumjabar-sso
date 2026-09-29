@@ -14,8 +14,6 @@ from idp_pegawai.extensions import db
 from idp_pegawai.models.org_unit import OrgUnit
 from idp_pegawai.models.pegawai import Pegawai
 from idp_pegawai.models.identity_link import PegawaiIdentityLink, PROVIDERS
-from idp_pegawai.models.consumer import ConsumerRegistration
-from idp_pegawai.services.consumer import ConsumerService
 from idp_pegawai.access.catalog import Capability
 from idp_pegawai.access.guards import AuthorizationDenied, require_capability
 
@@ -298,58 +296,6 @@ def update_identity_link(uuid):
     return jsonify({"data": {"uuid": str(link.uuid), "provider": link.provider, "issuer": link.issuer, "provider_subject": link.provider_subject, "is_active": link.is_active, "link_status": link.link_status}})
 
 
-def _serialize_consumer(row):
-    return {"uuid": str(row.uuid), "consumer_code": row.consumer_code,
-            "consumer_name": row.consumer_name, "owner_unit": row.owner_unit,
-            "contact_email": row.contact_email, "service_client_id": row.service_client_id,
-            "allowed_resource_families": row.allowed_resource_families,
-            "allowed_field_profile": row.allowed_field_profile, "status": row.status}
-
-
-@admin_bp.get("/consumer-registrations")
-def list_consumer_registrations():
-    if (denied := _guard(Capability.CONSUMER_REGISTRATION_VIEW)): return denied
-    rows = db.session.query(ConsumerRegistration).order_by(ConsumerRegistration.consumer_code).all()
-    return jsonify({"data": [_serialize_consumer(row) for row in rows]})
-
-
-@admin_bp.post("/consumer-registrations")
-def create_consumer_registration():
-    if (denied := _guard(Capability.CONSUMER_REGISTRATION_CREATE)): return denied
-    data = _json()
-    required = ("consumer_code", "consumer_name", "owner_unit", "contact_email", "service_client_id")
-    if any(not str(data.get(key, "")).strip() for key in required):
-        return jsonify({"error": "field consumer registration wajib diisi", "code": "invalid_payload"}), 400
-    resources = data.get("allowed_resource_families", ["pegawai-profile"])
-    if not isinstance(resources, list) or not resources:
-        return jsonify({"error": "resource profile wajib diisi", "code": "invalid_payload"}), 400
-    try:
-        row = ConsumerService(db.session).register(
-            str(data["consumer_code"]).strip(), name=str(data["consumer_name"]).strip(),
-            owner_unit=str(data["owner_unit"]).strip(), contact_email=str(data["contact_email"]).strip(),
-            service_client_id=str(data["service_client_id"]).strip(),
-            allowed_resource_families=resources,
-            allowed_field_profile=str(data.get("allowed_field_profile", "pegawai-profile.v1")).strip(),
-            status="proposed",
-        )
-        db.session.commit()
-    except (ValueError, TypeError, KeyError) as exc:
-        db.session.rollback()
-        return jsonify({"error": str(exc), "code": "invalid_payload"}), 400
-    return jsonify({"data": _serialize_consumer(row)}), 201
-
-
-@admin_bp.post("/consumer-registrations/<uuid>/approve")
-def approve_consumer_registration(uuid):
-    if (denied := _guard(Capability.CONSUMER_REGISTRATION_APPROVE)): return denied
-    row = _get(ConsumerRegistration, uuid)
-    if row is None:
-        return jsonify({"error": "consumer registration tidak ditemukan", "code": "not_found"}), 404
-    if row.status not in {"proposed", "review"}:
-        return jsonify({"error": "status registration tidak dapat diaktifkan", "code": "invalid_status"}), 409
-    row.status = "active"
-    db.session.commit()
-    return jsonify({"data": _serialize_consumer(row)})
 
 
 @admin_bp.get("/org-units")

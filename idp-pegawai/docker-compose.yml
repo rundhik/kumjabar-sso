@@ -5,22 +5,19 @@ services:
     working_dir: /usr/src/app
     command: >
       sh -c "
-      alembic upgrade head &&
+      flask --app 'idp_pegawai:create_app()' db upgrade &&
       python scripts/seed_dev_org_unit.py &&
       flask --app 'idp_pegawai:create_app()' run
       --host=0.0.0.0
       --port=9999
       "
     volumes:
-      - ..:/usr/src/app
+      - .:/usr/src/app
       - import_storage:/var/lib/kumjabar/imports
     env_file:
-      - ../.env
+      - .env
     environment:
-      # Runtime source is mounted at /usr/src/app/idp-pegawai. The root
-      # compatibility path is also included so `import idp_pegawai` resolves
-      # consistently for Flask, Alembic, and pytest.
-      PYTHONPATH: /usr/src/app/idp-pegawai
+      PYTHONPATH: /usr/src/app
       FLASK_CONFIG: development
       IMPORT_STORAGE_DIR: /var/lib/kumjabar/imports
       IMPORT_ORG_CODES: TUM_TI

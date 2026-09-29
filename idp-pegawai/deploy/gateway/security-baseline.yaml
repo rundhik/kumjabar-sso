@@ -1,0 +1,33 @@
+version: 1
+# Baseline contract; no deployment activation or certificate provisioning.
+trusted_proxy:
+  enabled: true
+  source: explicit_allowlist
+  addresses: []
+  overwrite_forwarded_headers: true
+tls:
+  edge_min_version: TLSv1.2
+  verify_upstream: true
+  reject_invalid_certificates: true
+limits:
+  max_body_bytes: 1048576
+  max_header_bytes: 32768
+  timeout_seconds:
+    client: 35
+    gateway: 30
+    application: 25
+    upstream: 20
+  rate_limit_per_minute: 60
+mutation_retry:
+  enabled: false
+  policy: never_retry_blind_mutations
+logging:
+  redact_fields:
+    - pii
+    - token
+    - cursor
+    - payload
+    - authorization
+    - cookie
+  log_body: false
+  log_query: false

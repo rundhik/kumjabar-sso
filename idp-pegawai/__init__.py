@@ -3,7 +3,7 @@ import os
 from flask import Flask
 
 from .config import Config, config_dict
-from .extensions import db
+from .extensions import db, migrate
 from .security import init_security
 
 
@@ -21,7 +21,23 @@ def create_app(config_object=None):
         app.config.from_object(Config)
         app.config.from_object(config_object)
     db.init_app(app)
+    migrate.init_app(app, db)
     init_security(app)
+    # File logging for later troubleshooting (app.log)
+    try:
+        import logging
+        from logging.handlers import RotatingFileHandler
+        from pathlib import Path as _LogPath
+        _log_path = _LogPath(__file__).resolve().parent / "app.log"
+        if not any(isinstance(h, RotatingFileHandler) and getattr(h, 'baseFilename', None) == str(_log_path) for h in app.logger.handlers):
+            _fh = RotatingFileHandler(str(_log_path), maxBytes=5*1024*1024, backupCount=3, encoding='utf-8')
+            _fh.setLevel(logging.INFO)
+            _fh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s [%(name)s] %(message)s'))
+            app.logger.addHandler(_fh)
+            app.logger.setLevel(logging.INFO)
+            logging.getLogger('werkzeug').addHandler(_fh)
+    except Exception as _e:
+        app.logger.warning('app.log handler failed: %s', _e)
     # Runtime repositories are wired here so server-rendered UI pages read the
     # authoritative PostgreSQL data instead of silently falling back to an
     # empty list when no test repository is injected.
@@ -39,7 +55,7 @@ def create_app(config_object=None):
         if urlsplit(app.config["KEYCLOAK_URL"]).scheme == "https" or insecure_dev:
             policy = KeycloakEndpointPolicy(app.config["KEYCLOAK_URL"], app.config["KEYCLOAK_REALM"], app.config["KEYCLOAK_CLIENT_ID"], allow_insecure_dev=insecure_dev)
             app.extensions["keycloak_transport"] = KeycloakHTTPTransport(policy, client_id=app.config["KEYCLOAK_CLIENT_ID"], client_secret=app.config["KEYCLOAK_CLIENT_SECRET"])
-    from .api import admin_bp, internal_feed_bp, import_bp, profile_bp
+    from .api import admin_bp, import_bp, profile_bp
     from .integrations.oidc.validator import OIDCValidationError, validate_token
     from .ui import ui_bp
 
@@ -65,7 +81,6 @@ def create_app(config_object=None):
         app.config["INTERNAL_PROFILE_AUTHORIZER"] = profile_authorizer
 
     app.register_blueprint(admin_bp)
-    app.register_blueprint(internal_feed_bp)
     app.register_blueprint(import_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(ui_bp)

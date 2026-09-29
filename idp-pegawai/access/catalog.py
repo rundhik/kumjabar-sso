@@ -29,9 +29,6 @@ class Capability(str, Enum):
     PEGAWAI_UPDATE = "idp.pegawai.update"
     PEGAWAI_DEACTIVATE = "idp.pegawai.deactivate"
     IDENTITY_LINK_CREATE = "idp.identity_link.create"
-    CONSUMER_REGISTRATION_VIEW = "idp.consumer_registration.view"
-    CONSUMER_REGISTRATION_CREATE = "idp.consumer_registration.create"
-    CONSUMER_REGISTRATION_APPROVE = "idp.consumer_registration.approve"
     IMPORT_VIEW = "idp.import.view"
     IMPORT_TEMPLATE_DOWNLOAD = "idp.import.template.download"
     IMPORT_UPLOAD = "idp.import.upload"
@@ -55,7 +52,7 @@ CAPABILITIES_BY_ROLE = {
     Role.VIEWER: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW}),
     Role.IMPORT_OPERATOR: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.IMPORT_VIEW, Capability.IMPORT_TEMPLATE_DOWNLOAD, Capability.IMPORT_UPLOAD, Capability.IMPORT_VALIDATE, Capability.IMPORT_ERROR_WORKBOOK_DOWNLOAD, Capability.IMPORT_APPLY_DISSETUJUI}),
     Role.IMPORT_APPROVER: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.IMPORT_VIEW, Capability.IMPORT_APPROVE, Capability.IMPORT_APPROVE_HIGH_IMPACT}),
-    Role.ACCESS_ADMIN: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.ORG_UNIT_CREATE, Capability.ORG_UNIT_UPDATE, Capability.ORG_UNIT_DEACTIVATE, Capability.PEGAWAI_CREATE, Capability.PEGAWAI_UPDATE, Capability.PEGAWAI_DEACTIVATE, Capability.IDENTITY_LINK_CREATE, Capability.CONSUMER_REGISTRATION_VIEW, Capability.CONSUMER_REGISTRATION_CREATE, Capability.CONSUMER_REGISTRATION_APPROVE, Capability.ACCESS_GRANT_VIEW, Capability.ACCESS_GRANT_CREATE, Capability.ACCESS_GRANT_REVOKE}),
+    Role.ACCESS_ADMIN: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.ORG_UNIT_CREATE, Capability.ORG_UNIT_UPDATE, Capability.ORG_UNIT_DEACTIVATE, Capability.PEGAWAI_CREATE, Capability.PEGAWAI_UPDATE, Capability.PEGAWAI_DEACTIVATE, Capability.IDENTITY_LINK_CREATE, Capability.ACCESS_GRANT_VIEW, Capability.ACCESS_GRANT_CREATE, Capability.ACCESS_GRANT_REVOKE}),
     Role.AUDITOR: frozenset({Capability.DASHBOARD_VIEW, Capability.AUDIT_VIEW, Capability.AUDIT_EXPORT_MASKED}),
     Role.SECURITY_ADMIN: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.ACCESS_GRANT_VIEW, Capability.ACCESS_GRANT_CREATE, Capability.ACCESS_GRANT_REVOKE, Capability.ACCESS_GRANT_CRITICAL_REQUEST, Capability.ACCESS_GRANT_CRITICAL_APPROVE, Capability.AUDIT_VERIFY_INTEGRITY, Capability.SECURITY_BOOTSTRAP_RECOVER}),
 }

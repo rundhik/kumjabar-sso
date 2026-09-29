@@ -21,17 +21,17 @@ class AccessGrant:
     status: GrantStatus = GrantStatus.ACTIVE
 
     def __post_init__(self) -> None:
-        if self.scope_type is ScopeType.ORG_UNIT_SUBTREE and self.scope_root_id is None:
+        if self.scope_type == ScopeType.ORG_UNIT_SUBTREE and self.scope_root_id is None:
             raise ValueError("org_unit_subtree grant requires scope_root_id")
-        if self.scope_type is ScopeType.GLOBAL and self.scope_root_id is not None:
+        if self.scope_type == ScopeType.GLOBAL and self.scope_root_id is not None:
             raise ValueError("global grant cannot have scope_root_id")
         if self.role in CRITICAL_ROLES and self.valid_until is None:
             raise ValueError("critical grant requires valid_until")
-        if self.status is not GrantStatus.ACTIVE:
+        if self.status != GrantStatus.ACTIVE:
             raise ValueError("new grants must be active")
 
     @property
     def is_effective(self) -> bool:
-        return self.status is GrantStatus.ACTIVE and (
+        return self.status == GrantStatus.ACTIVE and (
             self.valid_until is None or self.valid_until > datetime.now(timezone.utc)
         )

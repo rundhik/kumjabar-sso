@@ -19,7 +19,7 @@ def _authorize():
         return None, (jsonify({"error": "service token tidak valid", "code": "service_token_invalid"}), 401)
     scopes = set(str(claims.get("scope", "")).split())
     audience = current_app.config.get("INTERNAL_PROFILE_AUDIENCE", "idp-pegawai-internal")
-    client = current_app.config.get("INTERNAL_PROFILE_CLIENT", "s1-feed")
+    client = current_app.config.get("INTERNAL_PROFILE_CLIENT", "s1-jabar-token-exchange")
     token_audience = claims.get("aud")
     audience_allowed = audience in token_audience if isinstance(token_audience, (list, tuple, set)) else token_audience == audience
     if not audience_allowed or claims.get("azp") != client or "profile:read" not in scopes:

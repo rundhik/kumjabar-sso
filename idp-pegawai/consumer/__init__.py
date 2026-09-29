@@ -1,1 +1,0 @@
-"""Canonical consumer snapshot projection."""
