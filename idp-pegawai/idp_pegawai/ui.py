@@ -1,8 +1,9 @@
 """Server-rendered internal admin UI; read-only and deny-by-default."""
-from flask import Blueprint, current_app, render_template
+from flask import Blueprint, current_app, render_template, session
 
 from idp_pegawai.access.catalog import Capability
 from idp_pegawai.access.guards import AuthorizationDenied, require_capability
+from idp_pegawai.api.auth import login_required
 
 ui_bp = Blueprint("ui", __name__, url_prefix="/ui")
 
@@ -13,9 +14,7 @@ def _grants():
 
 def _allowed(capability):
     grants = _grants()
-    # Explicit capability enums are useful only for local/test configuration;
-    # production authorization still uses AccessGrant objects and the guard.
-    # Use value-based detection to survive dual-module imports.
+    # Development: UI_GRANTS berisi Capability enum (bukan AccessGrant)
     if grants and all(not hasattr(g, "role") for g in grants):
         cap_value = getattr(capability, "value", str(capability))
         grant_values = {getattr(g, "value", str(g)) for g in grants}
@@ -24,7 +23,6 @@ def _allowed(capability):
         require_capability(grants, capability)
         return True
     except AuthorizationDenied as exc:
-        # Log deny reason for troubleshooting (no PII)
         try:
             current_app.logger.warning("UI deny %s: grants=%s err=%s", capability, grants, exc)
         except Exception:
@@ -49,6 +47,7 @@ def _repository_records(config_key, method_name):
 
 
 @ui_bp.get("")
+@login_required
 def dashboard():
     if not _allowed(Capability.DASHBOARD_VIEW):
         return _denied()
@@ -56,6 +55,7 @@ def dashboard():
 
 
 @ui_bp.get("/pegawai")
+@login_required
 def pegawai():
     if not _allowed(Capability.PEGAWAI_VIEW):
         return _denied()
@@ -70,6 +70,7 @@ def pegawai():
 
 
 @ui_bp.get("/organisasi")
+@login_required
 def organisasi():
     if not _allowed(Capability.ORG_UNIT_VIEW):
         return _denied()
@@ -78,14 +79,12 @@ def organisasi():
 
 
 @ui_bp.get("/import")
+@login_required
 def import_page():
     if not _allowed(Capability.IMPORT_VIEW):
         return _denied()
-    # Keep the UI fail-closed when import persistence is not configured; this
-    # also prevents presenting an actionable form in a misconfigured runtime.
     supported = bool(current_app.config.get("IMPORT_STORAGE_DIR"))
     return render_template("ui/import.html", supported=supported)
-
 
 
 __all__ = ["ui_bp"]

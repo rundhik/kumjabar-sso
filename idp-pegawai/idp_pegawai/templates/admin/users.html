@@ -4,6 +4,7 @@
 <section class="panel" style="max-width:640px">
   <h2>Tambah user</h2>
   <form method="post" action="{{ url_for('admin_users.create_user') }}">
+    {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
     <label>Username <input class="text-input" name="username" required maxlength="80" placeholder="huruf kecil, angka, . _ -"></label>
     <label>Email (opsional) <input class="text-input" name="email" type="email" maxlength="255"></label>
     <label>Role <select class="text-input" name="role"><option value="operator">operator</option><option value="admin">admin</option></select></label>
@@ -14,6 +15,6 @@
 <section class="panel" style="margin-top:16px">
   <h2>Daftar users</h2>
   <table class="record-table" data-export-name="users.csv"><thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Aktif</th><th>Aksi</th></tr></thead>
-  <tbody>{% for u in users %}<tr><td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.email or '-' }}</td><td>{{ u.role }}</td><td>{{ 'ya' if u.is_active else 'tidak' }}</td><td>{% if u.is_active %}<form method="post" action="{{ url_for('admin_users.deactivate_user', user_id=u.id) }}" style="display:inline"><button class="btn btn-secondary" type="submit">Nonaktifkan</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted">Belum ada user</td></tr>{% endfor %}</tbody></table>
+  <tbody>{% for u in users %}<tr><td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.email or '-' }}</td><td>{{ u.role }}</td><td>{{ 'ya' if u.is_active else 'tidak' }}</td><td>{% if u.is_active %}<form method="post" action="{{ url_for('admin_users.deactivate_user', user_id=u.id) }}" style="display:inline">{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}<button class="btn btn-secondary" type="submit">Nonaktifkan</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted">Belum ada user</td></tr>{% endfor %}</tbody></table>
 </section>
 {% endblock %}

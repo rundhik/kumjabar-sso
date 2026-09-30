@@ -61,7 +61,17 @@ def init_security(app):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-        response.headers.setdefault("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+        # captcha memakai <img src="data:image/png;base64,..."> -> wajib izinkan data:
+        # plus CDN yang dipakai base.html (tailwind + gridjs) agar layout tidak rusak
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.tailwindcss.com; "
+            "img-src 'self' data:; "
+            "font-src 'self' data:; "
+            "connect-src 'self'",
+        )
         return response
 
     return app

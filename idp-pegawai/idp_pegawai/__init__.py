@@ -22,6 +22,16 @@ def create_app(config_object=None):
         app.config.from_object(config_object)
     db.init_app(app)
     migrate.init_app(app, db)
+    # CSRF §10 Dok 37 — aktif untuk POST /login, /logout, /admin/*; auto-skip bila TESTING atau WTF_CSRF_ENABLED=False
+    try:
+        from flask_wtf.csrf import CSRFProtect
+
+        csrf = CSRFProtect()
+        if not app.config.get("TESTING") and app.config.get("WTF_CSRF_ENABLED", True):
+            csrf.init_app(app)
+        app.extensions["csrf"] = csrf
+    except Exception:
+        pass
     init_security(app)
     # File logging for later troubleshooting (app.log)
     try:

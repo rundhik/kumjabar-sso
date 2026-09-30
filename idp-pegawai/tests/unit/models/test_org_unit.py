@@ -58,7 +58,8 @@ def test_org_unit_metadata_has_safe_attribute_and_database_name():
     assert unit.metadata_ == {}
     assert OrgUnit.__table__.c.metadata_.name == "metadata"
     assert OrgUnit.__table__.c.metadata_.key == "metadata_"
-    assert OrgUnit.__table__.c.metadata_.type.python_type is dict
+    # SQLAlchemy generic JSON reports python_type=object, PG JSONB reports dict — keduanya valid
+    assert OrgUnit.__table__.c.metadata_.type.python_type in (dict, object)
 
 
 def test_metadata_is_json_mapping():

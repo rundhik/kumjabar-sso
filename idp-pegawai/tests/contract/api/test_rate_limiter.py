@@ -43,6 +43,7 @@ def test_rate_limiter_login_10_per_minute():
     # TESTING=False agar limiter aktif; pakai sqlite in-memory tapi jangan create_all penuh
     cfg = {
         "TESTING": False,
+        "WTF_CSRF_ENABLED": False,
         "RATE_LIMIT_DISABLED": False,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
         "SECRET_KEY": "test-secret-xxxx-32chars-long-xxxxxx",

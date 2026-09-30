@@ -1,18 +1,20 @@
 {% extends 'ui/base.html' %}{% block content %}
+<style>.login-panel{max-width:560px;width:100%;margin:0 auto;display:grid;gap:14px}.login-captcha-row{display:grid;grid-template-columns:1fr 170px;gap:14px;align-items:end}@media(max-width:560px){.login-captcha-row{grid-template-columns:1fr}.login-captcha-row img{width:100%!important;max-width:200px}}</style>
 <section class="page-head"><div><p class="eyebrow">AKSES TERBATAS</p><h1>Masuk IDP Pegawai</h1><p class="muted">Masukkan username, password, dan captcha untuk melanjutkan.</p></div></section>
 {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
-<form method="post" action="{{ url_for('auth.login_post') }}" class="panel" style="max-width:480px">
+<form method="post" action="{{ url_for('auth.login_post') }}" class="panel login-panel">
+  {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
   <label>Username <input class="text-input" name="username" autocomplete="username" required maxlength="80" value="{{ request.form.username if request.form else '' }}"></label>
   <label>Password <input class="text-input" type="password" name="password" autocomplete="current-password" required></label>
-  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-    <div><label>Captcha <input class="text-input" name="captcha_answer" autocomplete="off" required maxlength="10" placeholder="Ketik huruf/angka di gambar"></label></div>
-    <div style="text-align:center">
-      <img src="{{ captcha_image }}" alt="captcha" style="height:60px;border:1px solid #ddd;border-radius:6px;display:block">
+  <div class="login-captcha-row">
+    <label>Captcha <input class="text-input" name="captcha_answer" autocomplete="off" required maxlength="10" placeholder="Ketik huruf/angka di gambar"></label>
+    <div style="text-align:center;display:grid;gap:6px;justify-items:center">
+      <img src="{{ captcha_image }}" alt="captcha" width="160" height="60" style="width:160px;height:60px;border:1px solid #d9e7e4;border-radius:8px;display:block;background:#fff;object-fit:cover">
       <input type="hidden" name="captcha_id" value="{{ captcha_id }}">
-      <a href="{{ url_for('auth.login') }}" class="muted" style="font-size:12px">Muat ulang captcha</a>
+      <a href="{{ url_for('auth.login') }}" class="muted" style="font-size:12px;text-decoration:underline">Muat ulang captcha</a>
     </div>
   </div>
-  <button class="btn btn-primary" type="submit">Masuk</button>
-  <p class="muted" style="font-size:12px;margin-top:8px">Password minimal 12 karakter: huruf besar + kecil + angka + simbol.</p>
+  <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:4px">Masuk</button>
+  <p class="muted" style="font-size:12px;margin:0">Password minimal 12 karakter: huruf besar + kecil + angka + simbol.</p>
 </form>
 {% endblock %}
