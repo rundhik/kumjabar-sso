@@ -56,6 +56,7 @@ def create_app(config_object=None):
             policy = KeycloakEndpointPolicy(app.config["KEYCLOAK_URL"], app.config["KEYCLOAK_REALM"], app.config["KEYCLOAK_CLIENT_ID"], allow_insecure_dev=insecure_dev)
             app.extensions["keycloak_transport"] = KeycloakHTTPTransport(policy, client_id=app.config["KEYCLOAK_CLIENT_ID"], client_secret=app.config["KEYCLOAK_CLIENT_SECRET"])
     from .api import admin_bp, import_bp, profile_bp
+    from .api.auth import auth_bp
     from .integrations.oidc.validator import OIDCValidationError, validate_token
     from .ui import ui_bp
 
@@ -91,4 +92,5 @@ def create_app(config_object=None):
     app.register_blueprint(import_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(ui_bp)
+    app.register_blueprint(auth_bp)
     return app

@@ -1,0 +1,18 @@
+{% extends 'ui/base.html' %}{% block content %}
+<section class="page-head"><div><p class="eyebrow">AKSES TERBATAS</p><h1>Masuk IDP Pegawai</h1><p class="muted">Masukkan username, password, dan captcha untuk melanjutkan.</p></div></section>
+{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+<form method="post" action="{{ url_for('auth.login_post') }}" class="panel" style="max-width:480px">
+  <label>Username <input class="text-input" name="username" autocomplete="username" required maxlength="80" value="{{ request.form.username if request.form else '' }}"></label>
+  <label>Password <input class="text-input" type="password" name="password" autocomplete="current-password" required></label>
+  <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div><label>Captcha <input class="text-input" name="captcha_answer" autocomplete="off" required maxlength="10" placeholder="Ketik huruf/angka di gambar"></label></div>
+    <div style="text-align:center">
+      <img src="{{ captcha_image }}" alt="captcha" style="height:60px;border:1px solid #ddd;border-radius:6px;display:block">
+      <input type="hidden" name="captcha_id" value="{{ captcha_id }}">
+      <a href="{{ url_for('auth.login') }}" class="muted" style="font-size:12px">Muat ulang captcha</a>
+    </div>
+  </div>
+  <button class="btn btn-primary" type="submit">Masuk</button>
+  <p class="muted" style="font-size:12px;margin-top:8px">Password minimal 12 karakter: huruf besar + kecil + angka + simbol.</p>
+</form>
+{% endblock %}

@@ -40,6 +40,14 @@ class Config:
     SESSION_TYPE = "redis"
     SESSION_PERMANENT = False
     PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.getenv("SESSION_LIFETIME_HOURS", "12")))
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    SESSION_COOKIE_SECURE = _bool("SESSION_COOKIE_SECURE", False)
+    # login lokal (Dok 37 Slice 3-4)
+    LOGIN_MAX_FAILS = int(os.getenv("LOGIN_MAX_FAILS", "5") or "5")
+    LOGIN_LOCKOUT_MINUTES = int(os.getenv("LOGIN_LOCKOUT_MINUTES", "15") or "15")
+    RATE_LIMIT_LOGIN_PER_MINUTE = int(os.getenv("RATE_LIMIT_LOGIN_PER_MINUTE", "10") or "10")
+    CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300") or "300")
 
     KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://kumjabar_keycloak:8080").rstrip("/")
     KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "")
