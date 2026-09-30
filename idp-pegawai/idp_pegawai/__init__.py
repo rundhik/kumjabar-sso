@@ -56,9 +56,18 @@ def create_app(config_object=None):
             policy = KeycloakEndpointPolicy(app.config["KEYCLOAK_URL"], app.config["KEYCLOAK_REALM"], app.config["KEYCLOAK_CLIENT_ID"], allow_insecure_dev=insecure_dev)
             app.extensions["keycloak_transport"] = KeycloakHTTPTransport(policy, client_id=app.config["KEYCLOAK_CLIENT_ID"], client_secret=app.config["KEYCLOAK_CLIENT_SECRET"])
     from .api import admin_bp, import_bp, profile_bp
+    from .api.admin_users import admin_users_bp
     from .api.auth import auth_bp
     from .integrations.oidc.validator import OIDCValidationError, validate_token
     from .ui import ui_bp
+
+    # CLI Slice 5
+    try:
+        from .operations.create_admin import register_cli as _register_create_admin
+
+        _register_create_admin(app)
+    except Exception as _e:
+        app.logger.warning("create-admin CLI not registered: %s", _e)
 
     def profile_authorizer(authorization, headers):
         if not authorization or not authorization.startswith("Bearer "):
@@ -89,6 +98,7 @@ def create_app(config_object=None):
         app.config["INTERNAL_PROFILE_AUTHORIZER"] = profile_authorizer
 
     app.register_blueprint(admin_bp)
+    app.register_blueprint(admin_users_bp)
     app.register_blueprint(import_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(ui_bp)
