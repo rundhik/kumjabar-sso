@@ -60,7 +60,52 @@ class Config:
             "allowed_field_profile": "pegawai-profile.v1"
         }
     }
-    _INTERNAL_PROFILE_JWKS_RAW = json.loads(os.getenv("INTERNAL_PROFILE_JWKS", "{}"))
+    # --- JWKS: Peringkat 2 (file) + legacy env fallback -----------------
+    # Prefer file via INTERNAL_PROFILE_JWKS_PATH (default: pub_certs.json di idp-pegawai/).
+    # Legacy INTERNAL_PROFILE_JWKS (string JSON di .env) tetap didukung sebagai fallback
+    # untuk backward-compatibility, tapi .env baru memakai PATH agar rapi & readiness.
+    INTERNAL_PROFILE_JWKS_PATH = os.getenv("INTERNAL_PROFILE_JWKS_PATH", "pub_certs.json").strip()
+    # Peringkat 1 (fetch+cache) — dinyalakan eksplisit bila jaringan ke Keycloak tersedia.
+    # Jika kosong, URL akan diturunkan dari KEYCLOAK_URL/KEYCLOAK_REALM di jwks_provider.
+    INTERNAL_PROFILE_JWKS_URL = os.getenv("INTERNAL_PROFILE_JWKS_URL", "").strip()
+    try:
+        INTERNAL_PROFILE_JWKS_CACHE_TTL = int(os.getenv("INTERNAL_PROFILE_JWKS_CACHE_TTL", "3600") or "3600")
+    except ValueError:
+        INTERNAL_PROFILE_JWKS_CACHE_TTL = 3600
+    INTERNAL_PROFILE_JWKS_FETCH_ENABLED = _bool("INTERNAL_PROFILE_JWKS_FETCH_ENABLED", False)
+
+    def _load_jwks_raw() -> dict:  # type: ignore[no-redef]
+        # 1) Coba file PATH (Peringkat 2)
+        _path = os.getenv("INTERNAL_PROFILE_JWKS_PATH", "pub_certs.json").strip()
+        if _path:
+            _p = Path(_path)
+            if not _p.is_absolute():
+                # Relatif terhadap idp-pegawai/ (BASE_DIR.parent) — stabil di container (/usr/src/app)
+                _candidate = (BASE_DIR.parent / _p).resolve()
+                if _candidate.exists():
+                    _p = _candidate
+                else:
+                    # Fallback ke CWD (untuk pytest yang run dari root)
+                    _cwd = (Path.cwd() / _p).resolve()
+                    if _cwd.exists():
+                        _p = _cwd
+                    else:
+                        _p = _candidate
+            try:
+                if _p.exists():
+                    return json.loads(_p.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        # 2) Legacy string JSON di env (backward-compat)
+        _legacy = os.getenv("INTERNAL_PROFILE_JWKS", "").strip()
+        if _legacy:
+            try:
+                return json.loads(_legacy)
+            except Exception:
+                return {}
+        return {}
+
+    _INTERNAL_PROFILE_JWKS_RAW = _load_jwks_raw()
     # Accept Keycloak's standard {"keys": [...]} document and normalize it to
     # the kid -> JWK mapping consumed by the fail-closed validator.
     INTERNAL_PROFILE_JWKS = {

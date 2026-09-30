@@ -63,7 +63,14 @@ def create_app(config_object=None):
         if not authorization or not authorization.startswith("Bearer "):
             return None
         issuer = app.config.get("INTERNAL_PROFILE_ISSUER")
-        jwks = app.config.get("INTERNAL_PROFILE_JWKS") or {}
+        # Peringkat 1 (fetch+cache) bila enabled, fallback ke file/config (Peringkat 2).
+        # get_jwks() sudah handle: fetch Keycloak certs + TTL + overlap, lalu file pub_certs.json,
+        # lalu nilai startup dari config. Tidak pernah bocorkan secret.
+        try:
+            from .integrations.oidc.jwks_provider import get_jwks
+            jwks = get_jwks(app) or {}
+        except Exception:
+            jwks = app.config.get("INTERNAL_PROFILE_JWKS") or {}
         if not issuer or not jwks:
             return None
         try:

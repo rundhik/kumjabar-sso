@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 !idp-pegawai/.env.example
+pub_certs.json
+!pub_certs.example.json
+!idp-pegawai/pub_certs.example.json
 
 # Python bytecode and caches
 __pycache__/
