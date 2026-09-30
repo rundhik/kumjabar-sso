@@ -64,8 +64,13 @@ _MAPPING_FIELDS = frozenset({"nip", "nama_lengkap", "status_pegawai", "org_unit_
 
 def _guard(capability):
     grants = current_app.config.get("IMPORT_GRANTS", ())
-    if all(isinstance(g, Capability) for g in grants):
-        return None if capability in grants else (jsonify({"error":"forbidden","code":"capability_denied"}), 403)
+    # Support local/test config where grants are bare Capability enums.
+    # Use value-based detection to survive dual-module imports (access vs idp_pegawai.access).
+    if grants and all(not hasattr(g, "role") for g in grants):
+        cap_value = getattr(capability, "value", str(capability))
+        grant_values = {getattr(g, "value", str(g)) for g in grants}
+        return None if cap_value in grant_values else (jsonify({"error":"forbidden","code":"capability_denied"}), 403)
+    # Handle empty/mixed grants via the canonical guard (fail-closed on non-grant objects).
     try: require_capability(grants, capability)
     except AuthorizationDenied: return jsonify({"error":"forbidden","code":"capability_denied"}), 403
     return None

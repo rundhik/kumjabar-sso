@@ -25,7 +25,18 @@ def require_capability(
     """
     requested = tuple(org_unit_ids or ())
     for grant in grants:
-        if not grant.is_effective:
+        # Fail-closed: skip non-grant objects (e.g. Capability enums from Development config)
+        # and survive dual-module imports (access vs idp_pegawai.access).
+        if not hasattr(grant, "role") or not hasattr(grant, "scope_type"):
+            continue
+        eff = getattr(grant, "is_effective", None)
+        if eff is None:
+            continue
+        try:
+            is_eff = eff() if callable(eff) else eff
+        except Exception:
+            continue
+        if not is_eff:
             continue
         if capability not in CAPABILITIES_BY_ROLE.get(grant.role, frozenset()):
             continue

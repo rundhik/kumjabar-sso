@@ -57,7 +57,20 @@ class ModelBase(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         return super().__getattribute__(name)
 
 # Kept as an extension-compatible handle for Flask/Alembic users.
-db = SQLAlchemy(model_class=Base)
+# Deduplicate SQLAlchemy instance across flat-loader aliases (app vs idp_pegawai).
+# Without this, ``app.models.base`` and ``idp_pegawai.models.base`` each create
+# their own ``SQLAlchemy(Base)`` leading to ``RuntimeError: multiple instances``.
+import sys as _sys
+_existing = None
+for _k in ("idp_pegawai.models.base", "app.models.base", "app.idp_pegawai.models.base"):
+    _m = _sys.modules.get(_k)
+    if _m is not None and hasattr(_m, "db") and _m is not _sys.modules.get(__name__):
+        _existing = _m.db
+        break
+if _existing is not None:
+    db = _existing
+else:
+    db = SQLAlchemy(model_class=Base)
 
 # SQLAlchemy reserves ``metadata`` on declarative classes; expose the database
 # column under its schema name as well for Alembic/introspection consumers.

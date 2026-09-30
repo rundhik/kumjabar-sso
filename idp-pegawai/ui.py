@@ -15,8 +15,11 @@ def _allowed(capability):
     grants = _grants()
     # Explicit capability enums are useful only for local/test configuration;
     # production authorization still uses AccessGrant objects and the guard.
-    if grants and all(isinstance(grant, Capability) for grant in grants):
-        return capability in grants
+    # Use value-based detection to survive dual-module imports.
+    if grants and all(not hasattr(g, "role") for g in grants):
+        cap_value = getattr(capability, "value", str(capability))
+        grant_values = {getattr(g, "value", str(g)) for g in grants}
+        return cap_value in grant_values
     try:
         require_capability(grants, capability)
         return True

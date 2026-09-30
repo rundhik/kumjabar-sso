@@ -19,6 +19,7 @@ from idp_pegawai.access.guards import AuthorizationDenied, require_capability
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
+
 def _guard(capability=Capability.ACCESS_GRANT_CREATE):
     try: require_capability(current_app.config.get("ADMIN_GRANTS", ()), capability)
     except AuthorizationDenied: return jsonify({"error":"forbidden", "code":"capability_denied"}), 403
