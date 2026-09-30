@@ -28,11 +28,18 @@ class SlidingWindowLimiter:
 
 
 def init_security(app):
+    # global limiter (general API 120/menit)
     limiter = SlidingWindowLimiter(
         limit=int(app.config.get("RATE_LIMIT_PER_MINUTE", 120)),
         window_seconds=60,
     )
     app.extensions["rate_limiter"] = limiter
+    # stricter limiter untuk /login (10/menit, Dok 37 §9)
+    login_limiter = SlidingWindowLimiter(
+        limit=int(app.config.get("RATE_LIMIT_LOGIN_PER_MINUTE", 10)),
+        window_seconds=60,
+    )
+    app.extensions["login_rate_limiter"] = login_limiter
 
     @app.before_request
     def rate_limit_request():
@@ -40,6 +47,11 @@ def init_security(app):
         if app.config.get("TESTING") or app.config.get("RATE_LIMIT_DISABLED"):
             return None
         key = request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
+        # login endpoint lebih ketat
+        if request.path == "/login" and request.method == "POST":
+            if not login_limiter.allowed(key):
+                return {"error": "terlalu banyak permintaan", "code": "rate_limited"}, 429
+            return None
         if not limiter.allowed(key):
             return {"error": "terlalu banyak permintaan", "code": "rate_limited"}, 429
         return None
