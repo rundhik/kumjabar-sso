@@ -1,12 +1,5 @@
 {% extends 'ui/base.html' %}{% block content %}
-<header class="page-head">
-    <div>
-        <p class="eyebrow">Master data</p>
-        <h1>Pegawai</h1>
-        <p class="muted">Semua pegawai ditampilkan, termasuk yang sudah tidak aktif atau memiliki status khusus.</p>
-    </div>
-    <div class="summary"><strong>{{ records|length }}</strong><span>total pegawai</span></div>
-</header>
+<div style="border-radius:20px;padding:20px;background:linear-gradient(135deg,#13253f,#1e3a5a);color:#fff;position:relative;overflow:hidden;box-shadow:0 12px 32px rgba(15,30,64,0.14)"><div style="position:absolute;inset:0;background:radial-gradient(520px 240px at 88% 0%, rgba(250,204,21,0.18), transparent 62%)"></div><div style="position:relative;display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap"><div><p class="eyebrow" style="color:#facc15;margin:0 0 6px">MASTER DATA</p><h1 style="color:#fff;margin:0;font-size:clamp(1.7rem,3.5vw,2.2rem)">Pegawai</h1><p style="color:#cbd5e1;margin:8px 0 0;max-width:620px">Semua pegawai — aktif &amp; tidak aktif — terkurasi dari PostgreSQL.</p></div><div style="background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.14);border-radius:14px;padding:12px 16px;text-align:center;backdrop-filter:blur(6px)"><div style="font-size:1.6rem;font-weight:900;color:#facc15">{{ records|length }}</div><div style="font-size:0.78rem;color:#cbd5e1;font-weight:700">total pegawai</div></div></div></div>
 <section class="status-cards" aria-label="Ringkasan status pegawai">
     <div class="status-card"><strong>{{ status_counts.aktif }}</strong><span>Aktif</span></div>
     <div class="status-card"><strong>{{ status_counts.nonaktif }}</strong><span>Nonaktif</span></div>
@@ -20,7 +13,7 @@
             <h2 id="pegawai-list-title">Daftar seluruh pegawai</h2>
             <p class="muted">Data aktif dan tidak aktif tetap terlihat. Cari, urutkan, paginasi, atau ekspor data.</p>
         </div>
-        <button class="button secondary" type="button" id="btn-sync-keycloak">🔄 Sync ke Keycloak</button>
+        <button class="button secondary" type="button" id="btn-sync-keycloak" style="border-color:#fde68a;background:#fef9c3;color:#92400e;font-weight:800">🔄 Sync ke Keycloak</button>
         <button class="button primary" type="button" data-open-modal="pegawai-modal">+ Tambah pegawai</button>
     </div>
     {% if state == 'error' %}<div class="empty-state error">Data sementara tidak tersedia.</div>{% elif records %}
@@ -113,7 +106,8 @@
     const payload = { provider: v('link-provider'), issuer: v('link-issuer'), provider_subject: v('link-subject'), email: v('link-email') || null, email_verified: document.querySelector('#link-verified').checked };
     const r = await preq(linkRecordUuid ? '/admin/identity-links/' + encodeURIComponent(linkRecordUuid) : '/admin/pegawai/' + encodeURIComponent(linkUuid) + '/identity-links', linkRecordUuid ? 'PATCH' : 'POST', payload); ilmsg.textContent = r.ok ? 'Identity link berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); ilmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { ilm.close(); location.reload() } };
     const pm = document.querySelector('#pegawai-modal'), pf = document.querySelector('#pegawai-form'), pmsg = document.querySelector('#p-feedback');
-    const preq = async (u, m, b) => { const r = await fetch(u, { method: m, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }); let j = {}; try { j = await r.json() } catch (_) { } return { ok: r.ok, body: j } }; document.querySelectorAll('[data-open-modal]').forEach(b => b.onclick = () => { pf.reset(); document.querySelector('#p-uuid').value = ''; pm.showModal() }); document.querySelectorAll('[data-close-modal]').forEach(b => b.onclick = () => pm.close()); document.querySelectorAll('.p-edit').forEach(b => b.onclick = () => { [['uuid', 'p-uuid'], ['nip', 'p-nip'], ['name', 'p-name'], ['status', 'p-status'], ['org', 'p-org'], ['email', 'p-email']].forEach(([d, i]) => document.querySelector('#' + i).value = b.dataset[d]); document.querySelector('#p-modal-title').textContent = 'Ubah pegawai'; pm.showModal() }); pf.onsubmit = async e => { e.preventDefault(); const value = id => document.querySelector('#' + id).value.trim();
+    const getCsrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const preq = async (u, m, b) => { const r = await fetch(u, { method: m, headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() }, credentials: 'same-origin', body: JSON.stringify(b) }); let j = {}; try { j = await r.json() } catch (_) { } return { ok: r.ok, body: j } }; document.querySelectorAll('[data-open-modal]').forEach(b => b.onclick = () => { pf.reset(); document.querySelector('#p-uuid').value = ''; pm.showModal() }); document.querySelectorAll('[data-close-modal]').forEach(b => b.onclick = () => pm.close()); document.querySelectorAll('.p-edit').forEach(b => b.onclick = () => { [['uuid', 'p-uuid'], ['nip', 'p-nip'], ['name', 'p-name'], ['status', 'p-status'], ['org', 'p-org'], ['email', 'p-email']].forEach(([d, i]) => document.querySelector('#' + i).value = b.dataset[d]); document.querySelector('#p-modal-title').textContent = 'Ubah pegawai'; pm.showModal() }); pf.onsubmit = async e => { e.preventDefault(); const value = id => document.querySelector('#' + id).value.trim();
     const id = value('p-uuid');
     const b = { nama_lengkap: value('p-name'), status_pegawai: value('p-status'), email_dinas: value('p-email') || null }; if (!id) b.nip = value('p-nip'); if (value('p-org')) b.primary_org_unit_uuid = value('p-org');
     const r = await preq(id ? '/admin/pegawai/' + encodeURIComponent(id) : '/admin/pegawai/create', id ? 'PATCH' : 'POST', b); pmsg.textContent = r.ok ? 'Berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); pmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { pm.close(); location.reload() } }; document.querySelectorAll('.p-deactivate').forEach(b => b.onclick = async () => { if (!confirm('Nonaktifkan pegawai ini?')) return; const r = await preq('/admin/pegawai/' + encodeURIComponent(b.dataset.uuid) + '/deactivate', 'POST', { status: 'nonaktif', reason: 'Dinonaktifkan melalui UI' }); if (r.ok) location.reload(); else alert(r.body.error || 'Permintaan gagal.') });
@@ -127,9 +121,11 @@
     btn.textContent = '⏳ Memproses Sync...';
 
     try {
+        const csrf=document.querySelector('meta[name="csrf-token"]')?.content||'';
         const response = await fetch('/admin/pegawai/sync-keycloak', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        credentials: 'same-origin'
         });
         const result = await response.json().catch(() => ({}));
 

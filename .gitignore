@@ -47,3 +47,9 @@ docker-compose.override.yml
 
 # Hermes local
 .hermes/
+
+# Skills installer artifacts (local only)
+.agents/
+.claude/
+agent/
+skills-lock.json

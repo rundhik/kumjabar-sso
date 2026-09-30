@@ -1,20 +1,20 @@
 {% extends 'ui/base.html' %}{% block content %}
-<section class="page-head"><div><p class="eyebrow">ADMIN</p><h1>Kelola Users</h1><p class="muted">Hanya admin dapat menambah/menonaktifkan user. Password minimal 12 karakter (4 kategori).</p></div></section>
-{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
-<section class="panel" style="max-width:640px">
-  <h2>Tambah user</h2>
-  <form method="post" action="{{ url_for('admin_users.create_user') }}">
+<div style="border-radius:20px;padding:22px;background:linear-gradient(135deg,#13253f,#1e3a5a);color:#fff;position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(15,30,64,0.16)"><div style="position:absolute;inset:0;background:radial-gradient(520px 260px at 88% 0%, rgba(250,204,21,0.20), transparent 62%)"></div><div style="position:relative"><p class="eyebrow" style="color:#facc15;margin:0 0 6px">ADMIN · RBAC TIPIS</p><h1 style="color:#fff;margin:0;font-size:clamp(1.7rem,3.5vw,2.2rem)">Kelola Users</h1><p style="color:#cbd5e1;margin:8px 0 0;max-width:680px">Hanya <strong style="color:#facc15">admin</strong> dapat menambah / menonaktifkan user. Operator fokus di Import Pegawai. Password wajib 12+ karakter (4 kategori).</p></div></div>
+{% if error %}<div class="notice error" role="alert" style="margin-top:14px">{{ error }}</div>{% endif %}
+<section class="panel" style="max-width:680px;margin-top:16px;border-left:4px solid #facc15">
+  <h2 style="margin:0 0 4px">Tambah user</h2><p class="muted" style="margin:0 0 14px;font-size:0.9rem">Username huruf kecil, role jelas: <strong>operator</strong> untuk import, <strong>admin</strong> untuk semua.</p>
+  <form method="post" action="{{ url_for('admin_users.create_user') }}" style="display:grid;gap:12px">
     {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
     <label>Username <input class="text-input" name="username" required maxlength="80" placeholder="huruf kecil, angka, . _ -"></label>
-    <label>Email (opsional) <input class="text-input" name="email" type="email" maxlength="255"></label>
-    <label>Role <select class="text-input" name="role"><option value="operator">operator</option><option value="admin">admin</option></select></label>
-    <label>Password <input class="text-input" type="password" name="password" required placeholder="min 12: A-Z, a-z, 0-9, simbol"></label>
-    <button class="btn btn-primary" type="submit">Buat user</button>
+    <label>Email (opsional) <input class="text-input" name="email" type="email" maxlength="255" placeholder="nama@jabarprov.go.id"></label>
+    <label>Role <select class="text-input" name="role"><option value="operator">operator — Import saja</option><option value="admin">admin — Semua akses</option></select></label>
+    <label>Password <input class="text-input" type="password" name="password" required placeholder="min 12: A-Z, a-z, 0-9, simbol (contoh: Str0ng!Pass#12)"></label>
+    <button class="btn btn-primary" type="submit" style="background:#13253f">Buat user →</button>
   </form>
 </section>
 <section class="panel" style="margin-top:16px">
-  <h2>Daftar users</h2>
-  <table class="record-table" data-export-name="users.csv"><thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Aktif</th><th>Aksi</th></tr></thead>
-  <tbody>{% for u in users %}<tr><td>{{ u.id }}</td><td>{{ u.username }}</td><td>{{ u.email or '-' }}</td><td>{{ u.role }}</td><td>{{ 'ya' if u.is_active else 'tidak' }}</td><td>{% if u.is_active %}<form method="post" action="{{ url_for('admin_users.deactivate_user', user_id=u.id) }}" style="display:inline">{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}<button class="btn btn-secondary" type="submit">Nonaktifkan</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted">Belum ada user</td></tr>{% endfor %}</tbody></table>
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><h2 style="margin:0">Daftar users</h2><span class="status-chip info">{{ users|length }} users</span></div>
+  <div style="margin-top:12px;overflow:auto"><table class="record-table" data-export-name="users.csv"><thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Role</th><th>Aktif</th><th>Aksi</th></tr></thead>
+  <tbody>{% for u in users %}<tr><td>{{ u.id }}</td><td><strong>{{ u.username }}</strong></td><td>{{ u.email or '—' }}</td><td><span class="status-chip {% if u.role=='admin' %}info{% else %}neutral{% endif %}" style="font-size:0.7rem">{{ u.role }}</span></td><td>{% if u.is_active %}<span style="color:#15803d;font-weight:800">ya</span>{% else %}<span style="color:#991b1b;font-weight:800">tidak</span>{% endif %}</td><td>{% if u.is_active %}<form method="post" action="{{ url_for('admin_users.deactivate_user', user_id=u.id) }}" style="display:inline">{% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}<button class="btn btn-secondary" type="submit" style="padding:7px 10px;font-size:0.82rem">Nonaktifkan</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="6" class="muted" style="text-align:center;padding:18px">Belum ada user — buat operator pertama di atas.</td></tr>{% endfor %}</tbody></table></div>
 </section>
 {% endblock %}

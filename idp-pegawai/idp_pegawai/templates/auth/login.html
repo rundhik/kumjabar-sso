@@ -1,20 +1,34 @@
 {% extends 'ui/base.html' %}{% block content %}
-<style>.login-panel{max-width:560px;width:100%;margin:0 auto;display:grid;gap:14px}.login-captcha-row{display:grid;grid-template-columns:1fr 170px;gap:14px;align-items:end}@media(max-width:560px){.login-captcha-row{grid-template-columns:1fr}.login-captcha-row img{width:100%!important;max-width:200px}}</style>
-<section class="page-head"><div><p class="eyebrow">AKSES TERBATAS</p><h1>Masuk IDP Pegawai</h1><p class="muted">Masukkan username, password, dan captcha untuk melanjutkan.</p></div></section>
-{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
-<form method="post" action="{{ url_for('auth.login_post') }}" class="panel login-panel">
-  {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
-  <label>Username <input class="text-input" name="username" autocomplete="username" required maxlength="80" value="{{ request.form.username if request.form else '' }}"></label>
-  <label>Password <input class="text-input" type="password" name="password" autocomplete="current-password" required></label>
-  <div class="login-captcha-row">
-    <label>Captcha <input class="text-input" name="captcha_answer" autocomplete="off" required maxlength="10" placeholder="Ketik huruf/angka di gambar"></label>
-    <div style="text-align:center;display:grid;gap:6px;justify-items:center">
-      <img src="{{ captcha_image }}" alt="captcha" width="160" height="60" style="width:160px;height:60px;border:1px solid #d9e7e4;border-radius:8px;display:block;background:#fff;object-fit:cover">
-      <input type="hidden" name="captcha_id" value="{{ captcha_id }}">
-      <a href="{{ url_for('auth.login') }}" class="muted" style="font-size:12px;text-decoration:underline">Muat ulang captcha</a>
-    </div>
+<style>.login-wrap{max-width:900px;margin:0 auto;display:grid;grid-template-columns:1.05fr 0.95fr;gap:22px;align-items:start}.login-hero{border-radius:20px;padding:28px;background:linear-gradient(135deg,#13253f,#1e3a5a);color:#fff;position:relative;overflow:hidden;box-shadow:0 16px 40px rgba(15,30,64,0.18)}.login-hero::after{content:"";position:absolute;inset:0;background:radial-gradient(500px 260px at 90% 0%, rgba(250,204,21,0.22), transparent 60%)}.login-hero > *{position:relative}.login-panel{border-radius:16px}.login-captcha-row{display:grid;grid-template-columns:1fr 168px;gap:12px;align-items:end}.login-hero h2{margin:0;color:#fff;font-size:1.35rem;line-height:1.2}.login-hero p{color:#cbd5e1;margin:10px 0 0;line-height:1.6;font-size:0.92rem}.login-hero ul{margin:14px 0 0;padding-left:18px;color:#e2e8f0;font-size:0.88rem;line-height:1.7}.login-hero li::marker{color:#facc15}@media(max-width:800px){.login-wrap{grid-template-columns:1fr}.login-captcha-row{grid-template-columns:1fr}.login-captcha-row img{width:100%!important;max-width:200px}}</style>
+<div class="login-wrap">
+  <div class="login-hero">
+    <p class="eyebrow" style="color:#facc15;margin:0 0 8px">AKSES TERBATAS · ERB STYLE</p>
+    <h2>Masuk IDP Pegawai</h2>
+    <p>Kelola data identitas ASN terkurasi. Gunakan <strong style="color:#facc15">captcha</strong> dan password kuat 12+ karakter.</p>
+    <ul>
+      <li>Biru navy untuk kepercayaan &amp; profesional</li>
+      <li>Kuning untuk aksi &amp; sorotan penting</li>
+      <li>Semua import butuh login — operator bisa upload</li>
+    </ul>
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><span style="background:rgba(250,204,21,0.14);border:1px solid rgba(250,204,21,0.28);color:#fef9c3;padding:6px 10px;border-radius:999px;font-size:0.78rem;font-weight:800">Transparan</span><span style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);padding:6px 10px;border-radius:999px;font-size:0.78rem">Akuntabel</span><span style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);padding:6px 10px;border-radius:999px;font-size:0.78rem">Berintegritas</span></div>
   </div>
-  <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:4px">Masuk</button>
-  <p class="muted" style="font-size:12px;margin:0">Password minimal 12 karakter: huruf besar + kecil + angka + simbol.</p>
-</form>
+  <div>
+    {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('auth.login_post') }}" class="panel login-panel" style="display:grid;gap:13px">
+      {% if csrf_token is defined %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endif %}
+      <label style="font-weight:800">Username <input class="text-input" name="username" autocomplete="username" required maxlength="80" placeholder="huruf kecil, contoh: operator1" value="{{ request.form.username if request.form else '' }}"></label>
+      <label style="font-weight:800">Password <input class="text-input" type="password" name="password" autocomplete="current-password" required placeholder="min 12: A-Z, a-z, 0-9, simbol"></label>
+      <div class="login-captcha-row">
+        <label style="font-weight:800">Captcha <input class="text-input" name="captcha_answer" autocomplete="off" required maxlength="10" placeholder="Ketik huruf/angka"></label>
+        <div style="text-align:center;display:grid;gap:6px;justify-items:center">
+          <img src="{{ captcha_image }}" alt="captcha" width="160" height="60" style="width:160px;height:60px;border:1px solid #dbeafe;border-radius:10px;display:block;background:#fff;object-fit:cover;box-shadow:0 6px 18px rgba(15,30,64,0.08)">
+          <input type="hidden" name="captcha_id" value="{{ captcha_id }}">
+          <a href="{{ url_for('auth.login') }}" class="muted" style="font-size:12px;text-decoration:underline;color:#1d4ed8">Muat ulang captcha</a>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:2px;background:#13253f">Masuk →</button>
+      <p class="muted" style="font-size:12px;margin:0;text-align:center">Password minimal 12 karakter: huruf besar + kecil + angka + simbol. <span style="color:#1d4ed8;font-weight:700">Butuh akun? Hubungi admin.</span></p>
+    </form>
+  </div>
+</div>
 {% endblock %}

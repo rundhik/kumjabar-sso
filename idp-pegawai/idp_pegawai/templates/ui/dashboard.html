@@ -1,1 +1,28 @@
-{% extends 'ui/base.html' %}{% block content %}<section class="hero"><p class="eyebrow">ADMIN INTERNAL</p><h1>Identity data, jelas dan terkontrol.</h1><p>Gunakan data curated dari PostgreSQL. Mutasi organisasi dan data pegawai tidak tersedia di UI ini.</p></section><div class="cards"><a class="card" href="{{ url_for('ui.pegawai') }}"><b>Pegawai</b><span>Read-only snapshot</span></a><a class="card" href="{{ url_for('ui.organisasi') }}"><b>Organisasi</b><span>Struktur aktif</span></a></div>{% endblock %}
+{% extends 'ui/base.html' %}{% block content %}
+<section class="hero" style="position:relative;overflow:hidden;border-radius:20px;padding:28px 28px 22px;background:linear-gradient(135deg,#13253f 0%,#1e3a5a 55%,#0f172a 100%);color:#fff;box-shadow:0 16px 40px rgba(15,30,64,0.18)">
+  <div style="position:absolute;inset:0;background:radial-gradient(600px 300px at 85% -10%, rgba(250,204,21,0.22), transparent 60%), radial-gradient(500px 300px at 0% 100%, rgba(59,130,246,0.18), transparent 60%)"></div>
+  <div style="position:relative">
+    <p class="eyebrow" style="color:#facc15;margin-bottom:10px;letter-spacing:0.16em">ADMIN INTERNAL · KUMJABAR SSO</p>
+    <h1 style="color:#fff;font-size:clamp(1.9rem,4vw,2.8rem);margin:0;line-height:1.08">Identity data,<br><span style="color:#facc15">jelas dan terkontrol.</span></h1>
+    <p style="color:#cbd5e1;max-width:640px;margin:14px 0 0;line-height:1.65">Portal terkurasi IDP Pegawai — konsumsi <strong style="color:#fff">PostgreSQL</strong> sebagai sumber kebenaran. Mutasi organisasi &amp; data pegawai hanya via alur import yang aman.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+      <a class="btn btn-accent" href="{{ url_for('ui.pegawai') }}">→ Lihat Pegawai</a>
+      <a class="btn btn-secondary" style="background:rgba(255,255,255,0.10);color:#fff;border-color:rgba(255,255,255,0.18);backdrop-filter:blur(6px)" href="{{ url_for('ui.import_page') }}">Buka Import</a>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;font-size:0.78rem;color:#cbd5e1">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:999px">● Transparan</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:999px">● Akuntabel</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:999px">● Berintegritas</span>
+    </div>
+  </div>
+</section>
+<div class="cards" style="margin-top:18px">
+  <a class="card yellow-accent" href="{{ url_for('ui.pegawai') }}"><b>Pegawai</b><span>Read-only snapshot — pencarian &amp; ekspor siap</span><span style="margin-top:6px;display:inline-flex;font-weight:800;color:#1e3a5a">Buka →</span></a>
+  <a class="card" style="border-left:4px solid #1d4ed8" href="{{ url_for('ui.organisasi') }}"><b>Organisasi</b><span>Struktur aktif unit kerja</span><span style="margin-top:6px;display:inline-flex;font-weight:800;color:#1e3a5a">Buka →</span></a>
+  <a class="card" href="{{ url_for('ui.import_page') }}"><b>Import</b><span>Upload → Mapping → Dry-run → Preview → Apply</span><span style="margin-top:6px;display:inline-flex;font-weight:800;color:#1e3a5a">Mulai →</span></a>
+</div>
+<div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
+  <div class="panel" style="border-left:4px solid #facc15"><p class="eyebrow yellow">KEAMANAN</p><strong style="color:#13253f">Login + Captcha + RBAC</strong><p class="muted" style="margin:6px 0 0;font-size:0.9rem">Operator hanya bisa import; kelola users khusus admin. Semua import butuh CSRF token.</p></div>
+  <div class="panel" style="border-left:4px solid #1d4ed8"><p class="eyebrow">OPERASIONAL</p><strong style="color:#13253f">Import aman bertahap</strong><p class="muted" style="margin:6px 0 0;font-size:0.9rem">Template Excel baku, validasi blocking, preview 100 baris sebelum apply.</p></div>
+</div>
+{% endblock %}
