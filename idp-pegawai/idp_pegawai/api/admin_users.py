@@ -48,7 +48,7 @@ def list_users():
         from ..extensions import db
         from ..models.idp_user import IdpUser
 
-        users = db.session.query(IdpUser).filter(IdpUser.deleted_at.is_(None)).order_by(IdpUser.id).all()
+        users = db.session.query(IdpUser).order_by(IdpUser.id).all()
     except Exception:
         # fallback repo fake
         users = list(getattr(repo, "_by_name", {}).values()) if repo else []
@@ -168,6 +168,43 @@ def deactivate_user(user_id: int):
         target.deleted_at = datetime.now(timezone.utc)
         _db.session.commit()
         current_app.logger.info("user_deactivated id=%s username=%s by=%s", user_id, getattr(target, "username", ""), session.get("username"))
+        if request.is_json:
+            return jsonify({"ok": True}), 200
+        from flask import redirect, url_for
+
+        return redirect(url_for("admin_users.list_users"))
+    except Exception as exc:
+        try:
+            from ..extensions import db as _db2
+
+            _db2.session.rollback()
+        except Exception:
+            pass
+        return jsonify({"error": str(exc), "code": "internal"}), 500
+
+
+@admin_users_bp.post("/users/<int:user_id>/activate")
+def activate_user(user_id: int):
+    """Aktifkan kembali user nonaktif."""
+    guard = _require_admin()
+    if guard is not None:
+        return guard
+    try:
+        from ..extensions import db
+        from ..models.idp_user import IdpUser
+
+        target = db.session.get(IdpUser, user_id)
+    except Exception:
+        target = None
+    if target is None:
+        return jsonify({"error": "user tidak ditemukan", "code": "not_found"}), 404
+    try:
+        from ..extensions import db as _db
+
+        target.is_active = True
+        target.deleted_at = None
+        _db.session.commit()
+        current_app.logger.info("user_activated id=%s username=%s by=%s", user_id, getattr(target, "username", ""), session.get("username"))
         if request.is_json:
             return jsonify({"ok": True}), 200
         from flask import redirect, url_for

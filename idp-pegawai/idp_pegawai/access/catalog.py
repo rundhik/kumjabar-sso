@@ -32,6 +32,8 @@ class Capability(str, Enum):
     IMPORT_VIEW = "idp.import.view"
     IMPORT_TEMPLATE_DOWNLOAD = "idp.import.template.download"
     IMPORT_UPLOAD = "idp.import.upload"
+    IMPORT_MAPPING = "idp.import.mapping"
+    IMPORT_PREVIEW = "idp.import.preview"
     IMPORT_VALIDATE = "idp.import.validate"
     IMPORT_ERROR_WORKBOOK_DOWNLOAD = "idp.import.error_workbook.download"
     IMPORT_APPLY_DISSETUJUI = "idp.import.apply_disetujui"
@@ -50,7 +52,7 @@ class Capability(str, Enum):
 
 CAPABILITIES_BY_ROLE = {
     Role.VIEWER: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW}),
-    Role.IMPORT_OPERATOR: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.IMPORT_VIEW, Capability.IMPORT_TEMPLATE_DOWNLOAD, Capability.IMPORT_UPLOAD, Capability.IMPORT_VALIDATE, Capability.IMPORT_ERROR_WORKBOOK_DOWNLOAD, Capability.IMPORT_APPLY_DISSETUJUI}),
+    Role.IMPORT_OPERATOR: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.IMPORT_VIEW, Capability.IMPORT_TEMPLATE_DOWNLOAD, Capability.IMPORT_UPLOAD, Capability.IMPORT_MAPPING, Capability.IMPORT_PREVIEW, Capability.IMPORT_VALIDATE, Capability.IMPORT_ERROR_WORKBOOK_DOWNLOAD, Capability.IMPORT_APPLY_DISSETUJUI}),
     Role.IMPORT_APPROVER: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.IMPORT_VIEW, Capability.IMPORT_APPROVE, Capability.IMPORT_APPROVE_HIGH_IMPACT}),
     Role.ACCESS_ADMIN: frozenset({Capability.DASHBOARD_VIEW, Capability.ORG_UNIT_VIEW, Capability.PEGAWAI_VIEW, Capability.ORG_UNIT_CREATE, Capability.ORG_UNIT_UPDATE, Capability.ORG_UNIT_DEACTIVATE, Capability.PEGAWAI_CREATE, Capability.PEGAWAI_UPDATE, Capability.PEGAWAI_DEACTIVATE, Capability.IDENTITY_LINK_CREATE, Capability.ACCESS_GRANT_VIEW, Capability.ACCESS_GRANT_CREATE, Capability.ACCESS_GRANT_REVOKE}),
     Role.AUDITOR: frozenset({Capability.DASHBOARD_VIEW, Capability.AUDIT_VIEW, Capability.AUDIT_EXPORT_MASKED}),

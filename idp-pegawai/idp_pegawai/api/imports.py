@@ -160,6 +160,21 @@ def batch_status(batch_uuid):
     return jsonify({"data":{"batch_id":str(batch.uuid),"status":batch.status,"source_format":batch.source_format,"summary":batch.summary or {}},"meta":{"contract_version":"imports.v1"}})
 
 
+@import_bp.get("/batches")
+def list_batches():
+    """Daftar semua batch (kurasi, tanpa storage key)."""
+    denied = _guard(Capability.IMPORT_VIEW)
+    if denied:
+        return denied
+    try:
+        batches = db.session.query(ImportBatch).order_by(ImportBatch.created_at.desc()).all()
+    except Exception:
+        current_app.logger.exception("list batches failed")
+        return _error("import persistence gagal", 503, "import_unavailable")
+    data = [{"batch_id": str(b.uuid), "status": b.status, "source_format": b.source_format, "created_at": b.created_at.isoformat() if b.created_at else None, "original_filename": b.original_filename, "uploader": b.uploaded_by} for b in batches]
+    return jsonify({"data": data, "meta": {"contract_version": "imports.v1"}})
+
+
 @import_bp.post("/batches/<uuid:batch_uuid>/mapping")
 def set_mapping(batch_uuid):
     """Set fixed canonical mapping; source columns must exist in CSV/XLSX.
@@ -167,8 +182,11 @@ def set_mapping(batch_uuid):
     tags: [imports]
     responses: {200: {description: Mapping accepted}, 400: {description: Invalid mapping}, 409: {description: Invalid status}}
     """
-    denied = _guard(Capability.IMPORT_VALIDATE)
-    if denied: return denied
+    denied = _guard(Capability.IMPORT_MAPPING)
+    if denied:
+        denied2 = _guard(Capability.IMPORT_VALIDATE)
+        if denied2:
+            return denied
     batch, error = _find(batch_uuid)
     if error: return error
     if batch.status != "received": return _error("status batch tidak dapat dipetakan",409,"invalid_status")
@@ -232,8 +250,10 @@ def preview(batch_uuid):
     tags: [imports]
     responses: {200: {description: Safe preview}, 403: {description: Denied}, 404: {description: Not found}, 409: {description: Invalid status}}
     """
-    denied=_guard(Capability.IMPORT_VALIDATE)
-    if denied:return denied
+    denied=_guard(Capability.IMPORT_PREVIEW)
+    if denied:
+        denied2=_guard(Capability.IMPORT_VALIDATE)
+        if denied2: return denied
     batch,error=_find(batch_uuid)
     if error:return error
     if batch.status not in ("mapped","staging","ready_to_apply"):return _error("batch belum siap preview",409,"invalid_status")
