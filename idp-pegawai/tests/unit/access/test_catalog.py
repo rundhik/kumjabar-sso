@@ -22,7 +22,7 @@ def test_catalog_is_fixed_and_contains_final_roles():
 
 def test_capabilities_are_namespaced_and_mapping_is_not_empty():
     assert all(cap.value.startswith("idp.") for cap in Capability)
-    assert Capability.IMPORT_APPLY_DISSETUJUI in CAPABILITIES_BY_ROLE[Role.IMPORT_OPERATOR]
+    assert Capability.IMPORT_APPLY_DISSETUJUI not in CAPABILITIES_BY_ROLE[Role.IMPORT_OPERATOR]
     assert Capability.IMPORT_APPROVE_HIGH_IMPACT in CAPABILITIES_BY_ROLE[Role.IMPORT_APPROVER]
     assert Capability.SECURITY_BOOTSTRAP_RECOVER in CAPABILITIES_BY_ROLE[Role.SECURITY_ADMIN]
     assert Capability.IMPORT_UPLOAD not in CAPABILITIES_BY_ROLE[Role.SECURITY_ADMIN]

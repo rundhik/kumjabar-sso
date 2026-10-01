@@ -84,7 +84,7 @@ def import_page():
     if not _allowed(Capability.IMPORT_VIEW):
         return _denied()
     supported = bool(current_app.config.get("IMPORT_STORAGE_DIR"))
-    return render_template("ui/import.html", supported=supported)
+    return render_template("ui/import.html", supported=supported, current_role=str(session.get("role") or "").lower())
 
 
 __all__ = ["ui_bp"]

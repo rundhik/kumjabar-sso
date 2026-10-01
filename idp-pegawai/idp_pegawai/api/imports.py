@@ -137,7 +137,16 @@ def register_batch():
     if not storage_dir: return _error("import persistence belum dikonfigurasi", 503, "import_unavailable")
     try:
         result = intake_file(upload.stream, upload.filename, upload.mimetype, Path(storage_dir), max_size=int(current_app.config.get("IMPORT_MAX_SIZE", 10*1024*1024)))
-        batch = ImportBatch(source_format=result.format, original_filename=result.original_filename, file_hash=result.sha256, storage_key=result.storage_key, uploaded_by=request.headers.get("X-Actor-Id", "unknown"))
+        uploader = (request.headers.get("X-Actor-Id") or "").strip() if request.headers.get("X-Actor-Id") else ""
+        # prefer session username (set by api/auth.py login)
+        try:
+            from flask import session as _sess
+            uploader = (str(_sess.get("username") or "").strip() or uploader)
+        except Exception:
+            pass
+        if not uploader:
+            uploader = "unknown"
+        batch = ImportBatch(source_format=result.format, original_filename=result.original_filename, file_hash=result.sha256, storage_key=result.storage_key, uploaded_by=uploader)
         db.session.add(batch); db.session.commit()
     except IntakeError as exc: return _error(str(exc), 415, "invalid_upload")
     except Exception:
@@ -278,6 +287,8 @@ def approve_batch(batch_uuid):
     batch, error = _find(batch_uuid)
     if error:
         return error
+    if batch.status == "applied":
+        return _error("batch sudah diterapkan", 409, "already_applied")
     if batch.status == "ready_to_apply":
         return jsonify({"data": {"batch_id": str(batch.uuid), "status": batch.status}})
     if batch.status != "staging":
