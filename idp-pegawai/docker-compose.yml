@@ -5,7 +5,7 @@ services:
     working_dir: /usr/src/app
     command: >
       sh -c "
-      flask --app 'idp_pegawai:create_app()' db upgrade &&
+      flask --app 'idp_pegawai:create_app()' db upgrade || echo 'db upgrade warn (maybe already applied)' &&
       python scripts/seed_dev_org_unit.py &&
       flask --app 'idp_pegawai:create_app()' run
       --host=0.0.0.0

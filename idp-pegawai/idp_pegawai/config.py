@@ -50,6 +50,7 @@ class Config:
     CAPTCHA_TTL_SECONDS = int(os.getenv("CAPTCHA_TTL_SECONDS", "300") or "300")
 
     KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://kumjabar_keycloak:8080").rstrip("/")
+    KEYCLOAK_PUBLIC_URL = os.getenv("KEYCLOAK_PUBLIC_URL", "").strip().rstrip("/")
     KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "")
     KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "")
     KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")

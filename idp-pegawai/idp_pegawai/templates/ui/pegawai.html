@@ -17,8 +17,9 @@
         <button class="button primary" type="button" data-open-modal="pegawai-modal">+ Tambah pegawai</button>
     </div>
     {% if state == 'error' %}<div class="empty-state error">Data sementara tidak tersedia.</div>{% elif records %}
-    <div class="overflow-x-auto">
-        <table class="record-table" data-export-name="pegawai.csv">
+    <div id="pegawai-grid"></div>
+    <div class="overflow-x-auto" style="display:none">
+        <table class="record-table" id="pegawai-table" data-export-name="pegawai.csv">
             <thead>
                 <tr>
                     <th>Pegawai</th>
@@ -107,11 +108,47 @@
     const r = await preq(linkRecordUuid ? '/admin/identity-links/' + encodeURIComponent(linkRecordUuid) : '/admin/pegawai/' + encodeURIComponent(linkUuid) + '/identity-links', linkRecordUuid ? 'PATCH' : 'POST', payload); ilmsg.textContent = r.ok ? 'Identity link berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); ilmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { ilm.close(); location.reload() } };
     const pm = document.querySelector('#pegawai-modal'), pf = document.querySelector('#pegawai-form'), pmsg = document.querySelector('#p-feedback');
     const getCsrf = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const preq = async (u, m, b) => { const r = await fetch(u, { method: m, headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() }, credentials: 'same-origin', body: JSON.stringify(b) }); let j = {}; try { j = await r.json() } catch (_) { } return { ok: r.ok, body: j } }; document.querySelectorAll('[data-open-modal]').forEach(b => b.onclick = () => { pf.reset(); document.querySelector('#p-uuid').value = ''; pm.showModal() }); document.querySelectorAll('[data-close-modal]').forEach(b => b.onclick = () => pm.close()); document.querySelectorAll('.p-edit').forEach(b => b.onclick = () => { [['uuid', 'p-uuid'], ['nip', 'p-nip'], ['name', 'p-name'], ['status', 'p-status'], ['org', 'p-org'], ['email', 'p-email']].forEach(([d, i]) => document.querySelector('#' + i).value = b.dataset[d]); document.querySelector('#p-modal-title').textContent = 'Ubah pegawai'; pm.showModal() }); pf.onsubmit = async e => { e.preventDefault(); const value = id => document.querySelector('#' + id).value.trim();
+    const preq = async (u, m, b) => { const r = await fetch(u, { method: m, headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() }, credentials: 'same-origin', body: JSON.stringify(b) }); let j = {}; try { j = await r.json() } catch (_) { } return { ok: r.ok, body: j } }; document.querySelectorAll('[data-open-modal]').forEach(b => b.onclick = () => { pf.reset(); document.querySelector('#p-uuid').value = ''; pm.showModal() }); document.querySelectorAll('[data-close-modal]').forEach(b => b.onclick = () => pm.close());
+    // Event delegation — Grid.js clones innerHTML jadi listener di elemen asli tidak ikut ter-copy
+    const pegawaiGrid = document.getElementById('pegawai-grid');
+    function handlePegawaiClick(e){
+      const linkBtn = e.target.closest('.p-link');
+      if(linkBtn){ (async()=>{ linkUuid = linkBtn.dataset.uuid; document.querySelector('#link-employee').textContent = linkBtn.dataset.name; ilf.reset(); ilmsg.textContent = 'Memuat identity link...'; ilmsg.className = 'feedback'; const response = await fetch('/admin/pegawai/' + encodeURIComponent(linkUuid) + '/identity-links'); const body = await response.json().catch(()=>({})); const existing=(body.data||[])[0]; if(existing){ linkRecordUuid=existing.uuid; document.querySelector('#link-provider').value=existing.provider; document.querySelector('#link-issuer').value=existing.issuer; document.querySelector('#link-subject').value=existing.provider_subject; document.querySelector('#link-email').value=existing.email||''; document.querySelector('#link-verified').checked=!!existing.email_verified; ilmsg.textContent='Identity link ditemukan. Kamu bisa memperbarui nilainya.' } else { linkRecordUuid=''; ilmsg.textContent='Belum ada identity link. Isi data lalu simpan.' } ilm.showModal(); })(); return; }
+      const editBtn = e.target.closest('.p-edit');
+      if(editBtn){ [['uuid','p-uuid'],['nip','p-nip'],['name','p-name'],['status','p-status'],['org','p-org'],['email','p-email']].forEach(([d,i])=>document.querySelector('#'+i).value=editBtn.dataset[d]); document.querySelector('#p-modal-title').textContent='Ubah pegawai'; pm.showModal(); return; }
+      const deBtn = e.target.closest('.p-deactivate');
+      if(deBtn){ (async()=>{ if(!confirm('Nonaktifkan pegawai ini?')) return; const r=await preq('/admin/pegawai/'+encodeURIComponent(deBtn.dataset.uuid)+'/deactivate','POST',{status:'nonaktif',reason:'Dinonaktifkan melalui UI'}); if(r.ok) location.reload(); else alert(r.body.error||'Permintaan gagal.'); })(); return; }
+    }
+    document.addEventListener('click', handlePegawaiClick);
+    if(pegawaiGrid) pegawaiGrid.addEventListener('click', handlePegawaiClick);
+    pf.onsubmit = async e => { e.preventDefault(); const value = id => document.querySelector('#' + id).value.trim();
     const id = value('p-uuid');
     const b = { nama_lengkap: value('p-name'), status_pegawai: value('p-status'), email_dinas: value('p-email') || null }; if (!id) b.nip = value('p-nip'); if (value('p-org')) b.primary_org_unit_uuid = value('p-org');
-    const r = await preq(id ? '/admin/pegawai/' + encodeURIComponent(id) : '/admin/pegawai/create', id ? 'PATCH' : 'POST', b); pmsg.textContent = r.ok ? 'Berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); pmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { pm.close(); location.reload() } }; document.querySelectorAll('.p-deactivate').forEach(b => b.onclick = async () => { if (!confirm('Nonaktifkan pegawai ini?')) return; const r = await preq('/admin/pegawai/' + encodeURIComponent(b.dataset.uuid) + '/deactivate', 'POST', { status: 'nonaktif', reason: 'Dinonaktifkan melalui UI' }); if (r.ok) location.reload(); else alert(r.body.error || 'Permintaan gagal.') });
+    const r = await preq(id ? '/admin/pegawai/' + encodeURIComponent(id) : '/admin/pegawai/create', id ? 'PATCH' : 'POST', b); pmsg.textContent = r.ok ? 'Berhasil disimpan.' : (r.body.error || 'Permintaan gagal.'); pmsg.className = 'feedback ' + (r.ok ? 'success' : 'error'); if (r.ok) { pm.close(); location.reload() } };
 
+    // Grid.js pegawai
+    (function(){
+      const table=document.getElementById('pegawai-table');
+      const mount=document.getElementById('pegawai-grid');
+      if(!table||!mount) return;
+      function init(){
+        if(!window.gridjs){ setTimeout(init,200); return; }
+        const rows=[...table.tBodies[0].rows].map(tr=>[
+          tr.cells[0].innerHTML, tr.cells[1].innerHTML, tr.cells[2].innerHTML, tr.cells[3].innerHTML
+        ]);
+        new gridjs.Grid({
+          columns:[
+            {name:'Pegawai', formatter:c=>gridjs.html(c)},
+            {name:'Status', formatter:c=>gridjs.html(c)},
+            {name:'Unit utama', formatter:c=>gridjs.html(c)},
+            {name:'Aksi', formatter:c=>gridjs.html(c), sort:false}
+          ],
+          data: rows, search:true, sort:true, pagination:{limit:10},
+          language:{search:{placeholder:'Cari pegawai...'},pagination:{previous:'‹',next:'›',showing:'Menampilkan',of:'dari',to:'sampai',results:'hasil'}}
+        }).render(mount);
+      }
+      if(document.readyState==='complete') init(); else window.addEventListener('load', init);
+    })();
     // Tambahkan di bagian bawah script pegawai.html
     document.querySelector('#btn-sync-keycloak').onclick = async () => {
     if (!confirm('Proses ini akan menginjeksi pegawai aktif yang belum memiliki akun ke Keycloak. Lanjutkan?')) return;

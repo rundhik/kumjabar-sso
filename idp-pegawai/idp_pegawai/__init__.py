@@ -66,6 +66,7 @@ def create_app(config_object=None):
             policy = KeycloakEndpointPolicy(app.config["KEYCLOAK_URL"], app.config["KEYCLOAK_REALM"], app.config["KEYCLOAK_CLIENT_ID"], allow_insecure_dev=insecure_dev)
             app.extensions["keycloak_transport"] = KeycloakHTTPTransport(policy, client_id=app.config["KEYCLOAK_CLIENT_ID"], client_secret=app.config["KEYCLOAK_CLIENT_SECRET"])
     from .api import admin_bp, import_bp, profile_bp
+    from .api.sync import sync_bp
     from .api.admin_users import admin_users_bp
     from .api.auth import auth_bp
     from .integrations.oidc.validator import OIDCValidationError, validate_token
@@ -94,13 +95,16 @@ def create_app(config_object=None):
         if not issuer or not jwks:
             return None
         try:
+            # leeway 60s untuk toleransi clock skew antar container
+            leeway = int(app.config.get("INTERNAL_PROFILE_LEEWAY", 60) or 60)
             return validate_token(
                 authorization[7:].strip(), issuer=issuer,
                 audience=app.config["INTERNAL_PROFILE_AUDIENCE"],
                 azp=app.config["INTERNAL_PROFILE_CLIENT"], jwks=jwks,
-                require_nbf=False,
+                require_nbf=False, leeway=leeway,
             )
         except OIDCValidationError as exc:
+            # log kategori saja (tanpa token), tapi bantu debug expired vs invalid
             app.logger.warning("profile service JWT rejected: %s", str(exc))
             return None
 
@@ -111,6 +115,7 @@ def create_app(config_object=None):
     app.register_blueprint(admin_users_bp)
     app.register_blueprint(import_bp)
     app.register_blueprint(profile_bp)
+    app.register_blueprint(sync_bp)
     app.register_blueprint(ui_bp)
     app.register_blueprint(auth_bp)
     return app

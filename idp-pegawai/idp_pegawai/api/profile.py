@@ -65,7 +65,31 @@ def profile():
     except ProfileResolutionError as exc:
         status = {"pegawai_identity_not_found": 404, "pegawai_inactive": 403}.get(exc.code, 409)
         return jsonify({"error": exc.message, "code": exc.code}), status
+    # consumer audit log (best-effort, sampling)
+    try:
+        import random, time as _time, sqlalchemy as sa
+        from idp_pegawai.extensions import db as _db
+        sample = float(current_app.config.get("CONSUMER_LOG_SAMPLE_RATE", 1.0) or 1.0)
+        if sample >= 1.0 or random.random() < sample:
+            start = request.environ.get("profile_start_ts")
+            latency = int((_time.time() - start) * 1000) if isinstance(start, (int, float)) else None
+            _db.session.execute(
+                sa.text("INSERT INTO consumer_profile_request_logs (consumer_id, endpoint, http_status, latency_ms, pegawai_uuid) VALUES (:c,:e,:s,:l, CAST(:u AS uuid))"),
+                {"c": str(claims.get("azp","")), "e": request.path, "s": 200, "l": latency, "u": str(data.get("uuid") or data.get("pegawai_uuid") or "") or None},
+            )
+            _db.session.commit()
+    except Exception:
+        try:
+            from idp_pegawai.extensions import db as _db2
+            _db2.session.rollback()
+        except Exception:
+            pass
     return jsonify({"data": data, "meta": {"source": "idp-pegawai", "contract_version": "pegawai-profile.v1"}})
 
 
 __all__ = ["profile_bp"]
+
+@profile_bp.before_request
+def _mark_start():
+    import time
+    request.environ["profile_start_ts"] = time.time()

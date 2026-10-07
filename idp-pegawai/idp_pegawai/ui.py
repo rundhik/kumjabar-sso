@@ -46,12 +46,46 @@ def _repository_records(config_key, method_name):
         return [], "error"
 
 
+def _dashboard_stats():
+    stats = {"pegawai": 0, "organisasi": 0, "batch_staging": 0, "batch_applied": 0, "batch_error": 0, "kc_logs": 0, "consumer_logs": 0}
+    for k, cfg in [("pegawai", "PEGAWAI_REPOSITORY"), ("organisasi", "ORG_UNIT_REPOSITORY")]:
+        repo = current_app.config.get(cfg)
+        if repo is not None:
+            try:
+                stats[k] = len(list(repo.list_active_snapshot_scope() if k == "pegawai" else repo.list_active()))
+            except Exception:
+                pass
+    # import_batches via DB if available
+    dsn = current_app.config.get("DATABASE_URL") or current_app.config.get("DB_DSN")
+    if dsn:
+        try:
+            import psycopg
+            with psycopg.connect(dsn) as conn:
+                with conn.cursor() as cur:
+                    for tbl, key in [("import_batches", None), ("keycloak_sync_logs", "kc_logs"), ("consumer_profile_request_logs", "consumer_logs")]:
+                        try:
+                            if key is None:
+                                cur.execute("SELECT status, COUNT(*) FROM import_batches GROUP BY status")
+                                for s, c in cur.fetchall():
+                                    s_norm = str(s).strip().lower()
+                                    if s_norm == "staging": stats["batch_staging"] = c
+                                    elif s_norm == "applied": stats["batch_applied"] = c
+                                    elif s_norm in ("error", "failed"): stats["batch_error"] = c
+                            else:
+                                cur.execute(f"SELECT COUNT(*) FROM {tbl}")
+                                stats[key] = cur.fetchone()[0]
+                        except Exception:
+                            conn.rollback()
+        except Exception:
+            pass
+    return stats
+
 @ui_bp.get("")
 @login_required
 def dashboard():
     if not _allowed(Capability.DASHBOARD_VIEW):
         return _denied()
-    return render_template("ui/dashboard.html")
+    return render_template("ui/dashboard.html", stats=_dashboard_stats())
 
 
 @ui_bp.get("/pegawai")

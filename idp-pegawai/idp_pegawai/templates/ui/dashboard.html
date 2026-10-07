@@ -4,25 +4,72 @@
   <div style="position:relative">
     <p class="eyebrow" style="color:#facc15;margin-bottom:10px;letter-spacing:0.16em">ADMIN INTERNAL · KUMJABAR SSO</p>
     <h1 style="color:#fff;font-size:clamp(1.9rem,4vw,2.8rem);margin:0;line-height:1.08">Identity data,<br><span style="color:#facc15">jelas dan terkontrol.</span></h1>
-    <p style="color:#cbd5e1;max-width:640px;margin:14px 0 0;line-height:1.65">Portal terkurasi IDP Pegawai — konsumsi <strong style="color:#fff">PostgreSQL</strong> sebagai sumber kebenaran. Mutasi organisasi &amp; data pegawai hanya via alur import yang aman.</p>
+    <p style="color:#cbd5e1;max-width:640px;margin:14px 0 0;line-height:1.65">Portal terkurasi IDP Pegawai — konsumsi <strong style="color:#fff">PostgreSQL</strong> sebagai sumber kebenaran.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
       <a class="btn btn-accent" href="{{ url_for('ui.pegawai') }}">→ Lihat Pegawai</a>
       <a class="btn btn-secondary" style="background:rgba(255,255,255,0.10);color:#fff;border-color:rgba(255,255,255,0.18);backdrop-filter:blur(6px)" href="{{ url_for('ui.import_page') }}">Buka Import</a>
     </div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;font-size:0.78rem;color:#cbd5e1">
-      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:999px">● Transparan</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:999px">● Akuntabel</span>
-      <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);padding:6px 10px;border-radius:999px">● Berintegritas</span>
+  </div>
+</section>
+
+{# Statistik dasbor #}
+<section style="margin-top:18px">
+  <h2 style="font-size:1rem;font-weight:900;color:#13253f;margin:0 0 10px">Ringkasan Statistik</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
+    <div class="panel" style="text-align:center;padding:16px">
+      <div style="font-size:1.7rem;font-weight:900;color:#13253f">{{ stats.pegawai if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Pegawai</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px">
+      <div style="font-size:1.7rem;font-weight:900;color:#1d4ed8">{{ stats.organisasi if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Organisasi</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px;border-left:4px solid #facc15">
+      <div style="font-size:1.7rem;font-weight:900;color:#92400e">{{ stats.batch_staging if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Batch Staging</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px;border-left:4px solid #16a34a">
+      <div style="font-size:1.7rem;font-weight:900;color:#166534">{{ stats.batch_applied if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Batch Applied</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px;border-left:4px solid #dc2626">
+      <div style="font-size:1.7rem;font-weight:900;color:#dc2626">{{ stats.batch_error if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Batch Error</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px">
+      <div style="font-size:1.7rem;font-weight:900;color:#7c3aed">{{ stats.kc_logs if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Sync Keycloak</div>
+    </div>
+    <div class="panel" style="text-align:center;padding:16px">
+      <div style="font-size:1.7rem;font-weight:900;color:#0e7490">{{ stats.consumer_logs if stats else 0 }}</div>
+      <div style="font-size:0.78rem;color:#64748b;font-weight:700">Request Consumer</div>
     </div>
   </div>
 </section>
+
+<section id="sync-s1-card" class="panel" style="margin-top:14px;border-left:4px solid #facc15;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+  <div><b style="color:#13253f">Sync ke s1-jabar</b><br><small id="sync-hash-info" style="color:#64748b">Snapshot hash: memuat…</small></div>
+  <div style="display:flex;gap:8px;align-items:center"><span id="sync-badge" style="font-size:0.75rem;font-weight:800;padding:4px 10px;border-radius:999px;background:#f1f5f9;color:#64748b">mengecek…</span><button id="btn-sync-s1" class="btn btn-accent" type="button">Sync sekarang</button></div>
+</section>
+<script>
+(function(){
+  var info=document.getElementById('sync-hash-info'),badge=document.getElementById('sync-badge'),btn=document.getElementById('btn-sync-s1');
+  if(!info||!badge||!btn) return;
+  var key='s1_last_snapshot_hash';
+  function check(){ fetch('/idp-pegawai/internal/api/v1/sync/pegawai/hash',{headers:{}}).then(function(r){return r.json()}).then(function(j){
+    var h=j.snapshot_hash||j.meta&&j.meta.snapshot_hash||''; info.textContent='Snapshot hash: '+(h?h.slice(0,16)+'… ('+j.total+' pegawai)':'-');
+    var last=localStorage.getItem(key);
+    if(!h){badge.textContent='-';badge.style.background='#f1f5f9';}
+    else if(last && last===h){badge.textContent='✓ sinkron';badge.style.background='#dcfce7';badge.style.color='#166534';btn.disabled=true;btn.textContent='Sudah sinkron';btn.style.opacity='.6';}
+    else {badge.textContent='⚠ ada pembaruan — harap sinkronisasi';badge.style.background='#fef9c3';badge.style.color='#92400e';}
+    btn.onclick=function(){ localStorage.setItem(key,h); badge.textContent='✓ sinkron';badge.style.background='#dcfce7';badge.style.color='#166534';btn.textContent='Tersimpan ✓'; setTimeout(check,800); };
+  }).catch(function(){ info.textContent='Snapshot hash: gagal memuat (butuh auth)'; badge.textContent='-'; });
+  } check();
+})();
+</script>
 <div class="cards" style="margin-top:18px">
   <a class="card yellow-accent" href="{{ url_for('ui.pegawai') }}"><b>Pegawai</b><span>Read-only snapshot — pencarian &amp; ekspor siap</span><span style="margin-top:6px;display:inline-flex;font-weight:800;color:#1e3a5a">Buka →</span></a>
   <a class="card" style="border-left:4px solid #1d4ed8" href="{{ url_for('ui.organisasi') }}"><b>Organisasi</b><span>Struktur aktif unit kerja</span><span style="margin-top:6px;display:inline-flex;font-weight:800;color:#1e3a5a">Buka →</span></a>
   <a class="card" href="{{ url_for('ui.import_page') }}"><b>Import</b><span>Upload → Mapping → Dry-run → Preview → Apply</span><span style="margin-top:6px;display:inline-flex;font-weight:800;color:#1e3a5a">Mulai →</span></a>
-</div>
-<div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">
-  <div class="panel" style="border-left:4px solid #facc15"><p class="eyebrow yellow">KEAMANAN</p><strong style="color:#13253f">Login + Captcha + RBAC</strong><p class="muted" style="margin:6px 0 0;font-size:0.9rem">Operator hanya bisa import; kelola users khusus admin. Semua import butuh CSRF token.</p></div>
-  <div class="panel" style="border-left:4px solid #1d4ed8"><p class="eyebrow">OPERASIONAL</p><strong style="color:#13253f">Import aman bertahap</strong><p class="muted" style="margin:6px 0 0;font-size:0.9rem">Template Excel baku, validasi blocking, preview 100 baris sebelum apply.</p></div>
 </div>
 {% endblock %}

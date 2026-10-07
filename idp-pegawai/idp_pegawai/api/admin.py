@@ -1,4 +1,5 @@
 import requests
+import sqlalchemy as sa
 from uuid import UUID
 from datetime import datetime, timezone
 from flask import Blueprint, current_app, jsonify, request
@@ -42,7 +43,11 @@ def _json():
 def _ensure_identity_link(emp, sub, kc_url, kc_realm):
     """Memastikan baris PegawaiIdentityLink terhubung dengan sub Keycloak terbaru."""
     try:
-        issuer_str = f"{kc_url}/realms/{kc_realm}"
+        # kc_url bisa sudah full issuer (http://localhost:8080/realms/kumjabar) atau base (http://host:8080)
+        if "/realms/" in kc_url:
+            issuer_str = kc_url.rstrip("/")
+        else:
+            issuer_str = f"{kc_url.rstrip('/')}/realms/{kc_realm}"
         existing_link = db.session.query(PegawaiIdentityLink).filter_by(
             pegawai_id=emp.id, provider="keycloak"
         ).first()
@@ -419,7 +424,7 @@ def sync_pegawai_to_keycloak():
         check_res = requests.get(f"{users_url}?username={nip}", headers=headers, timeout=5)
 
         if check_res.status_code == 200 and len(check_res.json()) > 0:
-            # === SKENARIO 1: UPDATE (USER EXISTING) ===
+            # === SKENARIO 1: UPDATE (USER EXISTING) — jangan sentuh email/firstName biar ga trigger UPDATE_PROFILE ===
             existing_user = check_res.json()[0]
             user_id = existing_user["id"]  # Ini adalah 'sub' Keycloak
 
@@ -428,12 +433,11 @@ def sync_pegawai_to_keycloak():
                 **emp_attributes
             }
 
+            # Explicit clear requiredActions biar user existing ga disuruh UPDATE_PROFILE lagi
+            # (kalau user pernah ke-set requiredActions lama, sync harus clear bukan nambah)
             update_payload = {
-                "username": existing_user.get("username", nip),
-                "enabled": existing_user.get("enabled", True),
-                "email": emp.email_dinas or existing_user.get("email") or f"{nip}@kumjabar.go.id",
-                "firstName": emp.nama_lengkap or existing_user.get("firstName", ""),
-                "attributes": updated_attributes
+                "attributes": updated_attributes,
+                "requiredActions": [],
             }
 
             put_res = requests.put(
@@ -446,13 +450,15 @@ def sync_pegawai_to_keycloak():
             if put_res.status_code in (200, 204):
                 updated_count += 1
                 skipped_count += 1
-                # --- PROSES AUTO-LINKING UNTUK USER EXISTING ---
-                _ensure_identity_link(emp, user_id, kc_url, kc_realm)
+                # issuer harus public URL (yang muncul di JWT iss), bukan internal docker host
+                kc_public = current_app.config.get("KEYCLOAK_PUBLIC_URL", "") or current_app.config.get("INTERNAL_PROFILE_ISSUER", "") or kc_url
+                kc_public = kc_public.rstrip("/")
+                _ensure_identity_link(emp, user_id, kc_public, kc_realm)
             else:
                 failed_count += 1
             continue
 
-        # === SKENARIO 2: INSERT (USER BARU) ===
+        # === SKENARIO 2: INSERT (USER BARU) — hanya user baru yang wajib ganti password ===
         default_password = "PNSJabar2026!"
         user_payload = {
             "username": nip,
@@ -486,9 +492,30 @@ def sync_pegawai_to_keycloak():
 
             # --- PROSES AUTO-LINKING UNTUK USER BARU ---
             if created_sub:
-                _ensure_identity_link(emp, created_sub, kc_url, kc_realm)
+                kc_public2 = current_app.config.get("KEYCLOAK_PUBLIC_URL", "") or current_app.config.get("INTERNAL_PROFILE_ISSUER", "") or kc_url
+                kc_public2 = kc_public2.rstrip("/")
+                _ensure_identity_link(emp, created_sub, kc_public2, kc_realm)
         else:
             failed_count += 1
+
+    # audit log (best-effort, jangan gagalkan response)
+    try:
+        actor_id = None
+        try:
+            actor_id = int(current_app.config.get("CURRENT_USER_ID") or 0) or None
+        except Exception:
+            pass
+        result = "success" if failed_count == 0 else ("partial" if created_count or updated_count else "failed")
+        db.session.execute(
+            sa.text("INSERT INTO keycloak_sync_logs (actor_user_id, result, created_count, updated_count, skipped_count, failed_count, total_processed, detail) VALUES (:a,:r,:c,:u,:s,:f,:t, CAST(:d AS jsonb))"),
+            {"a": actor_id, "r": result, "c": created_count, "u": updated_count, "s": skipped_count, "f": failed_count, "t": len(active_employees), "d": "{}"},
+        )
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
     return jsonify({
         "data": {
