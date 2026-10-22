@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !idp-pegawai/.env.example
+!keycloak/.env.example
 pub_certs.json
 !pub_certs.example.json
 !idp-pegawai/pub_certs.example.json
@@ -43,6 +44,7 @@ logs/
 *.sqlite
 
 # Local Docker overrides
+docker-compose.yml
 docker-compose.override.yml
 
 # Hermes local

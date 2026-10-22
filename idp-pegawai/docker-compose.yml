@@ -11,6 +11,7 @@ services:
       --host=0.0.0.0
       --port=9999
       "
+    ## Buat admin : docker exec -it kumjabar_idp flask --app 'idp_pegawai:create_app()' create-admin --username admin --password 'Str0ng!Pass#12' --role admin --email admin@kemenkum.go.id
     volumes:
       - .:/usr/src/app
       - import_storage:/var/lib/kumjabar/imports

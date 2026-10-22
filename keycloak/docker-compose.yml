@@ -10,7 +10,7 @@ services:
       # user-bound profile flow; permissions remain configured per client.
       - --features=token-exchange-standard:v2
     env_file:
-      - ../idp-pegawai/.env
+      - .env
     environment:
       # Keycloak 26+ bootstrap variable names. These are Compose interpolation
       # values, so start this file with --env-file ../idp-pegawai/.env.
