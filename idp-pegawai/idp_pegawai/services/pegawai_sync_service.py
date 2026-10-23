@@ -9,6 +9,7 @@ def row_hash(p):
         str(getattr(p, "nama_lengkap", "")),
         str(getattr(p, "email_google", "") or ""),
         str(getattr(p, "email_dinas", "") or ""),
+        str(getattr(p, "status_pegawai", "") or ""),
         str(getattr(ou, "code", "") or "") if ou else "",
     ]
     return hashlib.sha256("|".join(parts).encode()).hexdigest()
@@ -47,6 +48,8 @@ class PegawaiSyncService:
                 "nip": getattr(p,"nip",""),
                 "email_google": getattr(p,"email_google",None),
                 "email_dinas": getattr(p,"email_dinas",None),
+                "status_pegawai": getattr(p,"status_pegawai","aktif"),
+                "is_active": bool(getattr(p,"is_active",True)),
                 "org_units": [{"code": getattr(ou,"code",""), "name": getattr(ou,"name",""), "path": getattr(ou,"path","")}] if ou else [],
                 "updated_at": getattr(p,"updated_at",None).isoformat() if getattr(p,"updated_at",None) else None,
             })
