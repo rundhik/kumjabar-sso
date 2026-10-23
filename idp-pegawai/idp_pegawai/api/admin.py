@@ -2,7 +2,7 @@ import requests
 import sqlalchemy as sa
 from uuid import UUID
 from datetime import datetime, timezone
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy.exc import IntegrityError
 
 from idp_pegawai.repositories.org_unit_repository import OrgUnitRepository
@@ -361,17 +361,13 @@ def get_pegawai(uuid):
         return jsonify({"error": "pegawai tidak ditemukan", "code": "not_found"}), 404
     return jsonify({"data": serialize_pegawai(obj)})
 
-@admin_bp.post("/pegawai/sync-keycloak")
-def sync_pegawai_to_keycloak():
-    """Sync/Upsert active employees to Keycloak Realm via Admin REST API."""
-    if (denied := _guard(Capability.PEGAWAI_CREATE)): return denied
-
+def _get_keycloak_admin_token():
+    """Request Keycloak Admin token via client_credentials grant."""
     kc_url = current_app.config.get("KEYCLOAK_URL", "http://kumjabar_keycloak:8080")
     kc_realm = current_app.config.get("KEYCLOAK_REALM", "kumjabar")
     client_id = current_app.config.get("KEYCLOAK_CLIENT_ID", "idp-pegawai-admin")
     client_secret = current_app.config.get("KEYCLOAK_CLIENT_SECRET", "")
 
-    # 1. Minta Access Token Admin dari Keycloak
     token_url = f"{kc_url}/realms/{kc_realm}/protocol/openid-connect/token"
     try:
         token_res = requests.post(
@@ -384,11 +380,237 @@ def sync_pegawai_to_keycloak():
             timeout=10,
         )
         if token_res.status_code != 200:
-            return jsonify({"error": "Gagal autentikasi ke Keycloak Admin API", "code": "kc_auth_failed"}), 502
+            return None, (jsonify({"error": "Gagal autentikasi ke Keycloak Admin API", "code": "kc_auth_failed"}), 502)
         admin_token = token_res.json().get("access_token")
+        return admin_token, None
     except Exception as exc:
-        return jsonify({"error": f"Koneksi ke Keycloak gagal: {str(exc)}", "code": "kc_connection_error"}), 503
+        return None, (jsonify({"error": f"Koneksi ke Keycloak gagal: {str(exc)}", "code": "kc_connection_error"}), 503)
 
+
+def _sync_single_employee_record(emp, headers, kc_url, kc_realm):
+    """Sync single employee record to Keycloak (upsert logic)."""
+    nip = str(emp.nip).strip() if emp.nip else ""
+    if not nip:
+        return {"status": "skipped", "reason": "nip_empty"}
+
+    emp_attributes = {
+        "uuid_idp": [str(emp.uuid)],
+        "nip": [nip],
+        "nama_lengkap": [emp.nama_lengkap],
+        "status_pegawai": [emp.status_pegawai],
+        "org_units": [emp.primary_org_unit.code if emp.primary_org_unit else ""]
+    }
+
+    users_url = f"{kc_url}/admin/realms/{kc_realm}/users"
+
+    # Cek apakah NIP sudah ada di Keycloak
+    try:
+        check_res = requests.get(f"{users_url}?username={nip}", headers=headers, timeout=5)
+    except Exception as exc:
+        return {"status": "failed", "error": f"Koneksi ke Keycloak gagal: {str(exc)}"}
+
+    kc_public = current_app.config.get("KEYCLOAK_PUBLIC_URL", "") or current_app.config.get("INTERNAL_PROFILE_ISSUER", "") or kc_url
+    kc_public = kc_public.rstrip("/")
+
+    if check_res.status_code == 200 and len(check_res.json()) > 0:
+        # === SKENARIO 1: UPDATE (USER EXISTING) — jangan sentuh email/firstName biar ga trigger UPDATE_PROFILE ===
+        existing_user = check_res.json()[0]
+        user_id = existing_user["id"]  # sub Keycloak
+
+        updated_attributes = {
+            **(existing_user.get("attributes") or {}),
+            **emp_attributes
+        }
+
+        # Explicit clear requiredActions biar user existing ga disuruh UPDATE_PROFILE lagi
+        update_payload = {
+            "attributes": updated_attributes,
+            "requiredActions": [],
+        }
+
+        try:
+            put_res = requests.put(
+                f"{users_url}/{user_id}",
+                json=update_payload,
+                headers=headers,
+                timeout=5
+            )
+        except Exception as exc:
+            return {"status": "failed", "error": f"Koneksi ke Keycloak gagal: {str(exc)}"}
+
+        if put_res.status_code in (200, 204):
+            _ensure_identity_link(emp, user_id, kc_public, kc_realm)
+            return {"status": "updated", "user_id": user_id, "action": "updated"}
+        else:
+            return {"status": "failed", "error": put_res.text, "status_code": put_res.status_code}
+
+    # === SKENARIO 2: INSERT (USER BARU) — hanya user baru yang wajib ganti password ===
+    default_password = "PNSJabar2026!"
+    user_payload = {
+        "username": nip,
+        "enabled": True,
+        "email": emp.email_dinas or f"{nip}@kumjabar.go.id",
+        "firstName": emp.nama_lengkap,
+        "credentials": [
+            {
+                "type": "password",
+                "value": default_password,
+                "temporary": True
+            }
+        ],
+        "requiredActions": ["UPDATE_PASSWORD"],
+        "attributes": emp_attributes
+    }
+
+    try:
+        create_res = requests.post(users_url, json=user_payload, headers=headers, timeout=5)
+    except Exception as exc:
+        return {"status": "failed", "error": f"Koneksi ke Keycloak gagal: {str(exc)}"}
+
+    if create_res.status_code == 201:
+        # Ambil 'sub' dari Location Header atau via Query
+        location_header = create_res.headers.get("Location", "")
+        created_sub = location_header.split("/")[-1] if location_header else None
+
+        if not created_sub:
+            try:
+                get_user = requests.get(f"{users_url}?username={nip}", headers=headers, timeout=5)
+                if get_user.status_code == 200 and len(get_user.json()) > 0:
+                    created_sub = get_user.json()[0].get("id")
+            except Exception:
+                pass
+
+        # --- PROSES AUTO-LINKING UNTUK USER BARU ---
+        if created_sub:
+            _ensure_identity_link(emp, created_sub, kc_public, kc_realm)
+        return {"status": "created", "user_id": created_sub, "action": "created"}
+    else:
+        return {"status": "failed", "error": create_res.text, "status_code": create_res.status_code}
+
+
+@admin_bp.post("/pegawai/<uuid>/sync-keycloak")
+def sync_single_pegawai_to_keycloak(uuid):
+    """Sync single employee to Keycloak Realm via Admin REST API.
+    ---
+    tags: [Pegawai]
+    parameters:
+      - in: path
+        name: uuid
+        type: string
+        required: true
+        description: Employee UUID
+    responses:
+      200:
+        description: Employee successfully synced to Keycloak
+      400:
+        description: Invalid employee data
+      403:
+        description: Forbidden - requires employee management capability
+      404:
+        description: Employee not found
+      502:
+        description: Keycloak Admin API failure
+      503:
+        description: Keycloak connection error
+    """
+    denied_update = _guard(Capability.PEGAWAI_UPDATE)
+    denied_create = _guard(Capability.PEGAWAI_CREATE)
+    if denied_update and denied_create:
+        return denied_update
+
+    emp = _get(Pegawai, uuid)
+    if emp is None:
+        return jsonify({"error": "pegawai tidak ditemukan", "code": "not_found"}), 404
+
+    nip = str(emp.nip).strip() if emp.nip else ""
+    if not nip:
+        return jsonify({"error": "Pegawai tidak memiliki NIP valid", "code": "invalid_nip"}), 400
+
+    admin_token, err_response = _get_keycloak_admin_token()
+    if err_response:
+        return err_response
+
+    kc_url = current_app.config.get("KEYCLOAK_URL", "http://kumjabar_keycloak:8080")
+    kc_realm = current_app.config.get("KEYCLOAK_REALM", "kumjabar")
+    headers = {
+        "Authorization": f"Bearer {admin_token}",
+        "Content-Type": "application/json",
+    }
+
+    res = _sync_single_employee_record(emp, headers, kc_url, kc_realm)
+
+    # Best-effort audit log
+    actor_id = None
+    try:
+        actor_id = session.get("user_id") or (int(current_app.config.get("CURRENT_USER_ID") or 0) or None)
+    except Exception:
+        pass
+
+    created_count = 1 if res.get("status") == "created" else 0
+    updated_count = 1 if res.get("status") == "updated" else 0
+    failed_count = 1 if res.get("status") == "failed" else 0
+    result_status = "success" if failed_count == 0 else "failed"
+
+    try:
+        import json
+        detail_json = json.dumps({"mode": "single", "pegawai_uuid": str(emp.uuid), "nip": nip, "status": res.get("status")})
+        db.session.execute(
+            sa.text("INSERT INTO keycloak_sync_logs (actor_user_id, result, created_count, updated_count, skipped_count, failed_count, total_processed, detail) VALUES (:a,:r,:c,:u,:s,:f,:t, CAST(:d AS jsonb))"),
+            {
+                "a": actor_id,
+                "r": result_status,
+                "c": created_count,
+                "u": updated_count,
+                "s": 0,
+                "f": failed_count,
+                "t": 1,
+                "d": detail_json,
+            },
+        )
+        db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+    if res.get("status") == "failed":
+        return jsonify({
+            "error": f"Gagal sync ke Keycloak: {res.get('error', 'Terjadi kesalahan pada Keycloak')}",
+            "code": "kc_sync_failed"
+        }), 502
+
+    return jsonify({
+        "data": {
+            "action": res.get("action"),
+            "pegawai_uuid": str(emp.uuid),
+            "nip": nip,
+            "nama_lengkap": emp.nama_lengkap,
+            "keycloak_sub": res.get("user_id"),
+            "status": "success",
+        }
+    }), 200
+
+
+@admin_bp.post("/pegawai/sync-keycloak")
+def sync_pegawai_to_keycloak():
+    """Sync/Upsert active employees to Keycloak Realm via Admin REST API.
+    ---
+    tags: [Pegawai]
+    responses:
+      200: {description: Bulk sync completed}
+      403: {description: Forbidden}
+      502: {description: Keycloak API failure}
+      503: {description: Keycloak connection error}
+    """
+    if (denied := _guard(Capability.PEGAWAI_CREATE)): return denied
+
+    admin_token, err_response = _get_keycloak_admin_token()
+    if err_response:
+        return err_response
+
+    kc_url = current_app.config.get("KEYCLOAK_URL", "http://kumjabar_keycloak:8080")
+    kc_realm = current_app.config.get("KEYCLOAK_REALM", "kumjabar")
     headers = {
         "Authorization": f"Bearer {admin_token}",
         "Content-Type": "application/json",
@@ -405,96 +627,15 @@ def sync_pegawai_to_keycloak():
     skipped_count = 0
     failed_count = 0
 
-    users_url = f"{kc_url}/admin/realms/{kc_realm}/users"
-
     for emp in active_employees:
-        nip = str(emp.nip).strip()
-        if not nip:
-            continue
-
-        emp_attributes = {
-            "uuid_idp": [str(emp.uuid)],
-            "nip": [nip],
-            "nama_lengkap": [emp.nama_lengkap],
-            "status_pegawai": [emp.status_pegawai],
-            "org_units": [emp.primary_org_unit.code if emp.primary_org_unit else ""]
-        }
-
-        # Cek apakah NIP sudah ada di Keycloak
-        check_res = requests.get(f"{users_url}?username={nip}", headers=headers, timeout=5)
-
-        if check_res.status_code == 200 and len(check_res.json()) > 0:
-            # === SKENARIO 1: UPDATE (USER EXISTING) — jangan sentuh email/firstName biar ga trigger UPDATE_PROFILE ===
-            existing_user = check_res.json()[0]
-            user_id = existing_user["id"]  # Ini adalah 'sub' Keycloak
-
-            updated_attributes = {
-                **(existing_user.get("attributes") or {}),
-                **emp_attributes
-            }
-
-            # Explicit clear requiredActions biar user existing ga disuruh UPDATE_PROFILE lagi
-            # (kalau user pernah ke-set requiredActions lama, sync harus clear bukan nambah)
-            update_payload = {
-                "attributes": updated_attributes,
-                "requiredActions": [],
-            }
-
-            put_res = requests.put(
-                f"{users_url}/{user_id}",
-                json=update_payload,
-                headers=headers,
-                timeout=5
-            )
-
-            if put_res.status_code in (200, 204):
-                updated_count += 1
-                skipped_count += 1
-                # issuer harus public URL (yang muncul di JWT iss), bukan internal docker host
-                kc_public = current_app.config.get("KEYCLOAK_PUBLIC_URL", "") or current_app.config.get("INTERNAL_PROFILE_ISSUER", "") or kc_url
-                kc_public = kc_public.rstrip("/")
-                _ensure_identity_link(emp, user_id, kc_public, kc_realm)
-            else:
-                failed_count += 1
-            continue
-
-        # === SKENARIO 2: INSERT (USER BARU) — hanya user baru yang wajib ganti password ===
-        default_password = "PNSJabar2026!"
-        user_payload = {
-            "username": nip,
-            "enabled": True,
-            "email": emp.email_dinas or f"{nip}@kumjabar.go.id",
-            "firstName": emp.nama_lengkap,
-            "credentials": [
-                {
-                    "type": "password",
-                    "value": default_password,
-                    "temporary": True
-                }
-            ],
-            "requiredActions": ["UPDATE_PASSWORD"],
-            "attributes": emp_attributes
-        }
-
-        create_res = requests.post(users_url, json=user_payload, headers=headers, timeout=5)
-
-        if create_res.status_code == 201:
+        res = _sync_single_employee_record(emp, headers, kc_url, kc_realm)
+        if res.get("status") == "created":
             created_count += 1
-
-            # Ambil 'sub' dari Location Header atau via Query
-            location_header = create_res.headers.get("Location", "")
-            created_sub = location_header.split("/")[-1] if location_header else None
-
-            if not created_sub:
-                get_user = requests.get(f"{users_url}?username={nip}", headers=headers, timeout=5)
-                if get_user.status_code == 200 and len(get_user.json()) > 0:
-                    created_sub = get_user.json()[0].get("id")
-
-            # --- PROSES AUTO-LINKING UNTUK USER BARU ---
-            if created_sub:
-                kc_public2 = current_app.config.get("KEYCLOAK_PUBLIC_URL", "") or current_app.config.get("INTERNAL_PROFILE_ISSUER", "") or kc_url
-                kc_public2 = kc_public2.rstrip("/")
-                _ensure_identity_link(emp, created_sub, kc_public2, kc_realm)
+        elif res.get("status") == "updated":
+            updated_count += 1
+            skipped_count += 1
+        elif res.get("status") == "skipped":
+            pass
         else:
             failed_count += 1
 
@@ -502,7 +643,7 @@ def sync_pegawai_to_keycloak():
     try:
         actor_id = None
         try:
-            actor_id = int(current_app.config.get("CURRENT_USER_ID") or 0) or None
+            actor_id = session.get("user_id") or (int(current_app.config.get("CURRENT_USER_ID") or 0) or None)
         except Exception:
             pass
         result = "success" if failed_count == 0 else ("partial" if created_count or updated_count else "failed")
